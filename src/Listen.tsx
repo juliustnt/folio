@@ -11,6 +11,8 @@ import VoiceEditor from "./VoiceEditor";
 import { speechError } from "./voice";
 import type { VoiceProfile } from "./voice";
 import type { Preferences } from "./preferences";
+import { readingKey } from "./readingHighlight";
+import type { ReadingHighlight } from "./readingHighlight";
 import { documentPassages, SpeechQueue } from "./speech";
 export default function Listen({
   text,
@@ -19,6 +21,7 @@ export default function Listen({
   ready,
   documentId,
   onPage,
+  onReadingHighlight,
   preferences,
   updatePreferences,
 }: {
@@ -28,6 +31,7 @@ export default function Listen({
   ready: boolean;
   documentId: object;
   onPage: (page: number) => void;
+  onReadingHighlight: (highlight: ReadingHighlight | null) => void;
   preferences: Preferences;
   updatePreferences: (patch: Partial<Preferences>) => void;
 }) {
@@ -73,6 +77,7 @@ export default function Listen({
       });
   };
   const cleanup = () => {
+    onReadingHighlight(null);
     endPlayback.current?.();
     endPlayback.current = null;
     audio.current?.pause();
@@ -177,6 +182,8 @@ export default function Listen({
       },
     );
     queue.current = pending;
+    let highlightPage = -1;
+    let highlightCursor = 0;
     try {
       setProgress(
         prepareAll
@@ -217,18 +224,32 @@ export default function Listen({
         url.current = URL.createObjectURL(
           new Blob([bytes], { type: "audio/wav" }),
         );
+        if (highlightPage !== chunk.page) {
+          highlightPage = chunk.page;
+          highlightCursor = 0;
+        }
+        const key = readingKey(chunk.text);
+        const start = readingKey(texts[chunk.page - 1] || "").indexOf(key, highlightCursor);
+        const highlight = start < 0 ? null : { page: chunk.page, start, end: start + key.length };
+        if (highlight) highlightCursor = highlight.end;
         const player = new Audio(url.current);
         audio.current = player;
         player.playbackRate = speedRef.current;
         await new Promise<void>((resolve, reject) => {
           endPlayback.current = resolve;
-          player.onended = () => resolve();
+          player.onended = () => {
+            if (request.current === id) onReadingHighlight(null);
+            resolve();
+          };
           player.onerror = () =>
             reject(new Error("Unable to play the generated audio."));
           player
             .play()
             .then(() => {
-              if (request.current === id) setState("playing");
+              if (request.current === id) {
+                setState("playing");
+                onReadingHighlight(highlight);
+              }
             })
             .catch(reject);
         });

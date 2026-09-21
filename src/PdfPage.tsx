@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { TextLayer } from "pdfjs-dist";
 import type { PDFDocumentProxy, PageViewport } from "pdfjs-dist";
+import { readingOffsets } from "./readingHighlight";
+import type { ReadingHighlight } from "./readingHighlight";
 import type { Mark, Point } from "./pdf";
 export type Tool = "select" | "text" | "highlight" | "pen";
 export function PdfPage({
@@ -12,6 +14,7 @@ export function PdfPage({
   text = "",
   color = "#d4b645",
   size = 16,
+  readingHighlight,
   onMark,
   onError,
 }: {
@@ -23,9 +26,12 @@ export function PdfPage({
   text?: string;
   color?: string;
   size?: number;
+  readingHighlight?: ReadingHighlight | null;
   onMark?: (mark: Mark) => void;
   onError?: (error: string) => void;
 }) {
+  const [textVersion, setTextVersion] = useState(0);
+  const [readingRects, setReadingRects] = useState<{ x: number; y: number; width: number; height: number }[]>([]);
   const canvas = useRef<HTMLCanvasElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -79,7 +85,10 @@ export function PdfPage({
         container: layer.current,
         viewport: v,
       });
-      if (!cancelled) await textLayer.render();
+      if (!cancelled) {
+        await textLayer.render();
+        if (!cancelled) setTextVersion((version) => version + 1);
+      }
     };
     run().catch((e) => {
       if (!cancelled && e.name !== "RenderingCancelledException")
@@ -91,6 +100,26 @@ export function PdfPage({
       textLayer?.cancel();
     };
   }, [pdf, page, scale, thumbnail, visible, onError]);
+  useEffect(() => {
+    setReadingRects([]);
+    if (thumbnail || !layer.current || !root.current || readingHighlight?.page !== page) return;
+    const walker = document.createTreeWalker(layer.current, NodeFilter.SHOW_TEXT);
+    const positions: { node: Node; offset: number }[] = [];
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      for (const offset of readingOffsets(node.textContent || "")) positions.push({ node, offset });
+    }
+    const first = positions[readingHighlight.start];
+    const last = positions[readingHighlight.end - 1];
+    if (!first || !last) return;
+    const range = document.createRange();
+    range.setStart(first.node, first.offset);
+    range.setEnd(last.node, last.offset + 1);
+    const bounds = root.current.getBoundingClientRect();
+    setReadingRects(Array.from(range.getClientRects()).filter(rect => rect.width && rect.height).map(rect => ({
+      x: rect.left - bounds.left, y: rect.top - bounds.top, width: rect.width, height: rect.height,
+    })));
+  }, [readingHighlight, page, pdf, scale, thumbnail, textVersion]);
   const locate = (event: React.PointerEvent): Point => {
     const rect = event.currentTarget.getBoundingClientRect();
     return {
@@ -171,6 +200,11 @@ export function PdfPage({
             } as React.CSSProperties
           }
         />
+      )}
+      {!thumbnail && readingHighlight?.page === page && (
+        <svg className="reading-highlight" width={dimensions.width} height={dimensions.height} aria-hidden="true">
+          {readingRects.map((rect, index) => <rect key={index} {...rect} rx={2} />)}
+        </svg>
       )}
       {points.length > 0 && (
         <svg

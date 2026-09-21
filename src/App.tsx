@@ -37,6 +37,7 @@ import {
 import { PdfPage } from "./PdfPage";
 import type { Tool } from "./PdfPage";
 import Listen from "./Listen";
+import type { ReadingHighlight } from "./readingHighlight";
 import Contents from "./Contents";
 import Settings from "./Settings";
 import {
@@ -100,6 +101,7 @@ export default function App() {
   const [panel, setPanel] = useState<"listen" | "details">("listen");
   const [rail, setRail] = useState(true);
   const [query, setQuery] = useState("");
+  const [readingHighlight, setReadingHighlight] = useState<ReadingHighlight | null>(null);
   const [texts, setTexts] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [color, setColor] = useState("#c5a634");
@@ -917,6 +919,7 @@ export default function App() {
                 page={page}
                 scale={zoom}
                 tool={busy ? "select" : tool}
+                readingHighlight={readingHighlight}
                 text={note}
                 size={fontSize}
                 color={color}
@@ -1000,6 +1003,7 @@ export default function App() {
             ready={!busy && texts.length === pdf.numPages}
             documentId={pdf}
             onPage={setPage}
+            onReadingHighlight={setReadingHighlight}
             preferences={preferences}
             updatePreferences={updatePreferences}
           />

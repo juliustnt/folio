@@ -1530,3 +1530,12 @@ body,
 ::-webkit-scrollbar {
   display: none;
 }
+
+.reading-highlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  fill: #f5cc48;
+  opacity: 0.38;
+  mix-blend-mode: multiply;
+}
