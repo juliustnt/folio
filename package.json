@@ -1,0 +1,64 @@
+{
+  "name": "folio-pdf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A local-first PDF workspace",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run check:desktop && tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "desktop": "npm run build && electron .",
+    "desktop:dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
+    "test": "vitest run",
+    "setup:tts": "sh scripts/setup-tts.sh",
+    "package:mac": "npm run build && node scripts/package-mac.cjs && electron-builder --mac dir",
+    "check:desktop": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/speech.cjs && node --check electron/library.cjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.0",
+    "electron": "^41.0.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^3.2.0",
+    "wait-on": "^9.0.0"
+  },
+  "build": {
+    "appId": "com.folio.pdf",
+    "productName": "Folio",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dir"
+      ],
+      "identity": null
+    },
+    "extraResources": [
+      {
+        "from": "speech",
+        "to": "speech"
+      }
+    ],
+    "asar": true
+  }
+}
