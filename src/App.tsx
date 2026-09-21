@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import {
   ArrowDown,
@@ -114,6 +114,7 @@ export default function App() {
   const mergeInput = useRef<HTMLInputElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const currentPdf = useRef<PDFDocumentProxy | null>(null);
+  const currentLoadingTask = useRef<PDFDocumentLoadingTask | null>(null);
   const lock = useRef(false);
   const dirty = bytes !== savedBytes;
   const reportError = useCallback((message: string) => setError(message), []);
@@ -124,7 +125,8 @@ export default function App() {
   ) => {
     // Validate mutability before showing a file as editable. Encrypted files are not silently decrypted.
     await PDFDocument.load(data);
-    const loaded = await getDocument({ data: data.slice() }).promise;
+    const loadingTask = getDocument({ data: data.slice() });
+    const loaded = await loadingTask.promise;
     if (newDocument) {
       const key = await documentIdentity(data);
       const stored = readLocal<{ page: number; bookmarks: Bookmark[] }>(
@@ -137,13 +139,15 @@ export default function App() {
       setZoom(preferences.zoom);
       setFitMode(preferences.fitPage ? "page" : "manual");
     }
-    const old = currentPdf.current;
+    const oldLoadingTask = currentLoadingTask.current;
+    currentLoadingTask.current = loadingTask;
     currentPdf.current = loaded;
     setPdf(loaded);
     setBytes(data);
     setPage(Math.max(1, Math.min(targetPage, loaded.numPages)));
     setTexts([]);
-    if (old) setTimeout(() => void old.destroy(), 100);
+    if (oldLoadingTask)
+      setTimeout(() => void oldLoadingTask.destroy(), 100);
     const content: string[] = [];
     for (let n = 1; n <= loaded.numPages; n++) {
       if (currentPdf.current !== loaded) break;
@@ -359,9 +363,10 @@ export default function App() {
     setTexts([]);
     setPast([]);
     setFuture([]);
-    const previous = currentPdf.current;
+    const previousLoadingTask = currentLoadingTask.current;
+    currentLoadingTask.current = null;
     currentPdf.current = null;
-    setTimeout(() => void previous?.destroy(), 100);
+    setTimeout(() => void previousLoadingTask?.destroy(), 100);
     refreshRecents();
   };
   const addBookmark = () => {

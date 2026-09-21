@@ -17,7 +17,7 @@
     "check:desktop": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/speech.cjs && node --check electron/library.cjs"
   },
   "dependencies": {
-    "lucide-react": "^0.468.0",
+    "lucide-react": "^1.47.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.2.0",
@@ -26,13 +26,13 @@
   "devDependencies": {
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "concurrently": "^9.2.0",
-    "electron": "^41.0.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.3",
     "electron-builder": "^26.15.3",
-    "typescript": "~5.9.3",
-    "vite": "^7.3.0",
-    "vitest": "^3.2.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
     "wait-on": "^9.0.0"
   },
   "build": {
