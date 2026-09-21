@@ -2,7 +2,7 @@
 
 A local-first macOS PDF workspace built with TypeScript, React and Electron. PDF.js renders and extracts text; pdf-lib writes changes. Qwen3-TTS runs in an optional Python/MLX worker on Apple Silicon.
 
-## Run on this Mac
+## Run on Mac
 
 Open `release/mac-arm64/Folio.app`, or run:
 

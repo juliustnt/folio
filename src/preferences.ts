@@ -1,5 +1,14 @@
 import { useState } from "react";
+export const themes = [
+  { id: "burgundy", name: "Burgundy" },
+  { id: "ocean", name: "Ocean" },
+  { id: "forest", name: "Forest" },
+  { id: "plum", name: "Plum" },
+] as const;
+export type Theme = (typeof themes)[number]["id"];
+
 export type Preferences = {
+  theme: Theme;
   zoom: number;
   fitPage: boolean;
   fontSize: number;
@@ -14,6 +23,7 @@ export type Preferences = {
   dark: boolean;
 };
 export const defaults: Preferences = {
+  theme: "burgundy",
   zoom: 0.9,
   fitPage: true,
   fontSize: 16,

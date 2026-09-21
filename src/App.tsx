@@ -436,7 +436,6 @@ export default function App() {
   const header = (
     <header className="titlebar">
       <div className="brand">
-        <BookOpen size={23} strokeWidth={1.6} />
         <span>
           folio<span className="brand-dot">.</span>
         </span>
@@ -478,7 +477,7 @@ export default function App() {
       close={() => setSettings(false)}
     />
   );
-  const appClass = `app ${preferences.dark ? "dark-theme" : ""} ${preferences.compact ? "compact" : ""}`;
+  const appClass = `app theme-${preferences.theme} ${preferences.dark ? "dark-theme" : ""} ${preferences.compact ? "compact" : ""}`;
   if (!pdf)
     return (
       <div

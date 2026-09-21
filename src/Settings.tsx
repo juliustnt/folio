@@ -1,6 +1,6 @@
 import { X, Settings2 } from "lucide-react";
-import { defaults } from "./preferences";
-import type { Preferences } from "./preferences";
+import { defaults, themes } from "./preferences";
+import type { Preferences, Theme } from "./preferences";
 export default function Settings({
   value,
   update,
@@ -78,13 +78,27 @@ export default function Settings({
           />{" "}
           Compact interface
         </label>
+        <h3>Appearance</h3>
+        <div className="settings-grid">
+          <label>
+            Theme
+            <select
+              value={value.theme}
+              onChange={(e) => update({ theme: e.target.value as Theme })}
+            >
+              {themes.map((theme) => (
+                <option key={theme.id} value={theme.id}>{theme.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <label className="check-setting">
           <input
             type="checkbox"
             checked={value.dark}
             onChange={(e) => update({ dark: e.target.checked })}
           />{" "}
-          Dark burgundy workspace
+          Dark mode
         </label>
         <h3>Listening</h3>
         <label className="check-setting">
