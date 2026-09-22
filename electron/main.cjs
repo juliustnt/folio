@@ -50,6 +50,7 @@ handle('pdf:open', async () => { const result = await dialog.showOpenDialog(win,
 handle('pdf:save', async (name, data) => { if (typeof name !== 'string' || !(data instanceof Uint8Array) || data.length > 512 * 1024 * 1024) throw new Error('Invalid PDF data.'); const result = await dialog.showSaveDialog(win, { defaultPath: path.basename(name), filters: [{ name: 'PDF documents', extensions: ['pdf'] }] }); if (result.canceled || !result.filePath) return false; await writeFile(result.filePath, data); await library.remember(result.filePath); return true; });
 handle('library:recents', async () => (await library.read()).recents);
 handle('library:open', id => library.openRecent(id));
+handle('library:remove', id => library.removeRecent(id));
 handle('voice:remove', id => library.removeVoice(id));
 handle('voice:list', () => library.voices());
 handle('voice:inspect', async id => {

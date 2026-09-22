@@ -598,30 +598,48 @@ export default function App() {
               <h2>Recent documents</h2>
               {recents.length ? (
                 recents.map((recent) => (
-                  <button
-                    className="recent-file"
-                    disabled={busy}
-                    key={recent.id}
-                    onClick={() =>
-                      void task(async () => {
-                        const file = await window.folio!.openRecent(recent.id);
-                        await replace(new Uint8Array(file.data), file.name);
-                      })
-                    }
-                  >
-                    <FileText size={18} />
-                    <span>
-                      {recent.name}
-                      <small title={recent.path}>{recent.path}</small>
-                    </span>
-                    <ChevronRight size={14} />
-                  </button>
+                  <div className="recent-file" key={recent.id}>
+                    <button
+                      className="recent-open"
+                      disabled={busy}
+                      onClick={() =>
+                        void task(async () => {
+                          const file = await window.folio!.openRecent(recent.id);
+                          await replace(new Uint8Array(file.data), file.name);
+                        })
+                      }
+                    >
+                      <FileText size={18} />
+                      <span>
+                        {recent.name}
+                        <small title={recent.path}>{recent.path}</small>
+                      </span>
+                      <ChevronRight size={14} />
+                    </button>
+                    <button
+                      className="recent-remove"
+                      disabled={busy}
+                      title="Remove from recents"
+                      aria-label={`Remove ${recent.name} from recents`}
+                      onClick={async () => {
+                        try {
+                          await window.folio!.removeRecent(recent.id);
+                          setRecents((items) =>
+                            items.filter((item) => item.id !== recent.id),
+                          );
+                        } catch (e) {
+                          setError(String(e));
+                        }
+                      }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                 ))
               ) : (
                 <div className="empty-recents">
                   <FileText size={28} />
-                  <p>Your next read starts here.</p>
-                  <small>PDFs you open will appear in this list.</small>
+                  <small><br></br>PDFs you open will appear in this list.</small>
                 </div>
               )}
             </section>

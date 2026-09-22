@@ -10,6 +10,7 @@ declare global {
         { id: string; name: string; path: string; openedAt: string }[]
       >;
       openRecent(id: string): Promise<{ name: string; data: Uint8Array }>;
+      removeRecent(id: string): Promise<void>;
       removeVoice(id: string): Promise<void>;
       nextPdf(): Promise<{ name: string; data: Uint8Array } | null>;
       onPendingPdf(callback: () => void): () => void;

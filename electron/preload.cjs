@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('folio', {
   repairPdfOpening: () => ipcRenderer.invoke('pdf:repair'),
   recents: () => ipcRenderer.invoke('library:recents'),
   openRecent: id => ipcRenderer.invoke('library:open', id),
+  removeRecent: id => ipcRenderer.invoke('library:remove', id),
   removeVoice: id => ipcRenderer.invoke('voice:remove', id),
   nextPdf: () => ipcRenderer.invoke('pdf:next'),
   onPendingPdf: callback => { const listener = () => callback(); ipcRenderer.on('pdf:pending', listener); return () => ipcRenderer.removeListener('pdf:pending', listener); },

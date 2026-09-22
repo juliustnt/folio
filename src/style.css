@@ -1034,13 +1034,28 @@ footer > span:first-child {
 .recent-file {
   width: 100%;
   display: flex;
+  align-items: center;
+  border-bottom: 1px solid hsl(calc(338.57 + var(--theme-hue-shift, 0)) 29.17% 90.59%);
+  color: hsl(calc(345.00 + var(--theme-hue-shift, 0)) 31.68% 39.61%);
+}
+.recent-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
   text-align: left;
   justify-content: flex-start;
   padding: 14px 10px;
   gap: 12px;
-  border-bottom: 1px solid hsl(calc(338.57 + var(--theme-hue-shift, 0)) 29.17% 90.59%);
   border-radius: 0;
-  color: hsl(calc(345.00 + var(--theme-hue-shift, 0)) 31.68% 39.61%);
+  color: inherit;
+}
+.recent-open > svg {
+  flex-shrink: 0;
+}
+.recent-remove {
+  flex-shrink: 0;
+  padding: 10px;
+  color: inherit;
 }
 .recent-file span {
   flex: 1;

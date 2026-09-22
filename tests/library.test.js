@@ -19,6 +19,27 @@ describe('on-disk library', () => {
       expect(ref.transcript).toBe('Exact sample words.');
     } finally { await rm(directory, { recursive: true }); }
   });
+  it('removes recents persistently while preserving files and other entries', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'folio-remove-recent-'));
+    try {
+      const file = path.join(directory, 'test.pdf');
+      await writeFile(file, 'test pdf bytes');
+      const library = new Library(path.join(directory, 'data'));
+      const removed = await library.remember(file);
+      const kept = await library.remember(path.join(directory, 'other.pdf'));
+      await library.removeRecent(removed.id);
+      const restarted = new Library(path.join(directory, 'data'));
+      expect((await restarted.read()).recents).toEqual([kept]);
+      expect(await readFile(file, 'utf8')).toBe('test pdf bytes');
+      await expect(restarted.openRecent(removed.id)).rejects.toThrow('no longer');
+      await restarted.removeRecent(removed.id);
+      expect((await restarted.read()).recents).toEqual([kept]);
+      await restarted.removeRecent(kept.id);
+      expect((await restarted.read()).recents).toEqual([]);
+      await restarted.remember(file);
+      expect((await restarted.read()).recents).toHaveLength(1);
+    } finally { await rm(directory, { recursive: true }); }
+  });
   it('persists recents and restricts reopening to known IDs', async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'folio-recents-test-'));
     try {

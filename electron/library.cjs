@@ -24,6 +24,11 @@ class Library {
       state.recents = [item, ...state.recents.filter(entry => entry.path !== filename)].slice(0, 20); return item;
     });
   }
+  async removeRecent(id) {
+    return this.update(state => {
+      state.recents = state.recents.filter(item => item.id !== id);
+    });
+  }
   async openRecent(id) {
     const item = (await this.read()).recents.find(item => item.id === id);
     if (!item) throw new Error('This recent file is no longer in your library.');
