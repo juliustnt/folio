@@ -52,7 +52,7 @@ export default function Settings({
           </button>
         </header>
         {window.folio?.macOS && <>
-          <h3>Opening PDFs from Finder</h3>
+          <h3>Finder</h3>
           <p>Set Folio as the default for all PDFs. If a PDF shows an Apple verification warning after using Always Open With, repair that file’s opening preference.</p>
           <div className="voice-actions">
             <button disabled={finderBusy} onClick={() => void finderAction(false)}>Make Folio the default PDF app</button>

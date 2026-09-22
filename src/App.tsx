@@ -102,6 +102,24 @@ export default function App() {
   const [name, setName] = useState("Welcome to Folio.pdf");
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(preferences.zoom);
+  const [readerIdle, setReaderIdle] = useState(false);
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+    const revealControls = () => {
+      setReaderIdle(false);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => setReaderIdle(true), 3000);
+    };
+    const events = ["pointermove", "pointerdown", "keydown", "wheel", "scroll", "focusin"] as const;
+    for (const event of events)
+      window.addEventListener(event, revealControls, { capture: true, passive: true });
+    revealControls();
+    return () => {
+      clearTimeout(timeout);
+      for (const event of events)
+        window.removeEventListener(event, revealControls, true);
+    };
+  }, []);
   const [tool, setTool] = useState<Tool>("select");
   const panel = preferences.panel;
   const setPanel = (panel: "listen" | "details") =>
@@ -574,7 +592,7 @@ export default function App() {
                   <small>Your reading, voice, and workspace preferences.</small>
                 </span>
               </button>
-              <div className="start-note">Drop a PDF anywhere to open it.</div>
+
             </section>
             <section>
               <h2>Recent documents</h2>
@@ -952,7 +970,7 @@ export default function App() {
             </button>
           </aside>
         )}
-        <main className="document-stage" ref={stage}>
+        <main className={`document-stage${readerIdle ? " reader-idle" : ""}`} ref={stage}>
           <div className="canvas-heading">
             <span>
               {tool === "select" ? "A LITTLE ROOM TO FOCUS" : "MAKE IT YOURS"}
