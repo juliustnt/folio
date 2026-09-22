@@ -3,10 +3,16 @@ export {};
 declare global {
   interface Window {
     folio?: {
+      macOS: boolean;
+      setDefaultPdfApp(): Promise<void>;
+      repairPdfOpening(): Promise<{ name: string; repaired: boolean } | null>;
       recents(): Promise<
         { id: string; name: string; path: string; openedAt: string }[]
       >;
       openRecent(id: string): Promise<{ name: string; data: Uint8Array }>;
+      removeVoice(id: string): Promise<void>;
+      nextPdf(): Promise<{ name: string; data: Uint8Array } | null>;
+      onPendingPdf(callback: () => void): () => void;
       voices(): Promise<VoiceProfile[]>;
       inspectVoice(
         id: string,

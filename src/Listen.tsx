@@ -48,6 +48,7 @@ export default function Listen({
   const speed = preferences.speed;
   const [profiles, setProfiles] = useState<VoiceProfile[]>([]);
   const [editing, setEditing] = useState<VoiceProfile | null>(null);
+  const [removingVoice, setRemovingVoice] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const expectedPage = useRef(page);
   const [state, setState] = useState<
@@ -129,6 +130,25 @@ export default function Listen({
     speedRef.current = Number(speed);
     if (audio.current) audio.current.playbackRate = Number(speed);
   }, [speed]);
+  const removeVoice = async () => {
+    if (!reference || !window.folio || removingVoice) return;
+    const selected = reference;
+    if (!window.confirm(`Remove “${selected.name}” and its saved recording from Folio? Your original recording will be kept.`)) return;
+    setRemovingVoice(true);
+    try {
+      stop();
+      await window.folio.removeVoice(selected.id);
+      setProfiles(current => current.filter(p => p.id !== selected.id));
+      setReference(null);
+      setTranscript("");
+      setEditing(null);
+      setVoice("Ryan");
+      updatePreferences({ voice: "Ryan" });
+      setProfileMessage("Voice removed.");
+      setError("");
+    } catch (e) { setError(speechError(e)); }
+    finally { setRemovingVoice(false); }
+  };
   const start = async () => {
     if (state === "playing") {
       audio.current?.pause();
@@ -316,7 +336,7 @@ export default function Listen({
                     : e.target.value,
               });
             }}
-            disabled={state !== "idle"}
+            disabled={removingVoice || state !== "idle"}
           >
             <option value="clone">My cloned voice</option>
             {[
@@ -341,7 +361,7 @@ export default function Listen({
                 Saved voices
                 <select
                   aria-label="Saved voices"
-                  disabled={state !== "idle"}
+                  disabled={removingVoice || state !== "idle"}
                   value={savedReference ? reference!.id : ""}
                   onChange={(e) => {
                     const profile = profiles.find(
@@ -368,15 +388,17 @@ export default function Listen({
               </label>
             )}
             <div className="voice-actions">
+              {savedReference && <button disabled={removingVoice || state !== "idle"}
+                onClick={() => void removeVoice()}>{removingVoice ? "Removing…" : "Remove"}</button>}
               <button
                 onClick={chooseReference}
-                disabled={state !== "idle" || !window.folio}
+                disabled={removingVoice || state !== "idle" || !window.folio}
               >
                 New voice
               </button>
               {savedReference && (
                 <button
-                  disabled={state !== "idle"}
+                  disabled={removingVoice || state !== "idle"}
                   onClick={() =>
                     setEditing(profiles.find((p) => p.id === reference!.id)!)
                   }
@@ -399,7 +421,7 @@ export default function Listen({
           <input
             type="checkbox"
             checked={prepareAll}
-            disabled={state !== "idle"}
+            disabled={removingVoice || state !== "idle"}
             onChange={(e) =>
               updatePreferences({ prepareAll: e.target.checked })
             }
@@ -410,7 +432,7 @@ export default function Listen({
           <input
             type="checkbox"
             checked={preferences.continuePages}
-            disabled={state !== "idle"}
+            disabled={removingVoice || state !== "idle"}
             onChange={(e) =>
               updatePreferences({ continuePages: e.target.checked })
             }
@@ -423,7 +445,7 @@ export default function Listen({
             <select
               value={language}
               onChange={(e) => updatePreferences({ language: e.target.value })}
-              disabled={state !== "idle"}
+              disabled={removingVoice || state !== "idle"}
             >
               {[
                 "English",
@@ -460,6 +482,7 @@ export default function Listen({
         <button
           className="primary listen-button"
           disabled={
+            removingVoice ||
             !ready ||
             !status.available ||
             (!text.trim() && !preferences.continuePages) ||

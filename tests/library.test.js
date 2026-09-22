@@ -49,3 +49,25 @@ describe('editing saved voice segments', () => {
     } finally { await rm(directory,{recursive:true}); }
   });
 });
+
+describe('removing custom voices', () => {
+  it('removes the saved profile and copied audio, preserving originals and other voices', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'folio-remove-voice-'));
+    try {
+      const source = path.join(directory, 'original.wav');
+      await writeFile(source, 'original audio');
+      const library = new Library(path.join(directory, 'data'));
+      const removed = await library.saveVoice(source, 'Remove me', 'Sample words');
+      const kept = await library.saveVoice(source, 'Keep me', 'Sample words');
+      const recording = await library.reference(removed.id);
+      await library.removeVoice(removed.id);
+      const restarted = new Library(path.join(directory, 'data'));
+      expect(await restarted.voices()).toEqual([kept]);
+      expect(await restarted.reference(removed.id)).toBeUndefined();
+      await expect(readFile(recording.path)).rejects.toMatchObject({ code: 'ENOENT' });
+      expect(await readFile(source, 'utf8')).toBe('original audio');
+      await expect(restarted.removeVoice(source)).rejects.toThrow('not found');
+      expect(await restarted.voices()).toEqual([kept]);
+    } finally { await rm(directory, { recursive: true }); }
+  });
+});

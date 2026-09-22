@@ -18,6 +18,7 @@ import {
   Minus,
   MousePointer2,
   PanelLeftClose,
+  PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
   PenLine,
@@ -231,6 +232,22 @@ export default function App() {
     setQuery("");
     refreshRecents();
   };
+  const [pendingOpen, setPendingOpen] = useState(0);
+  const checkingOpen = useRef(false);
+  useEffect(() => window.folio?.onPendingPdf(() => setPendingOpen(n => n + 1)), []);
+  useEffect(() => {
+    if (!window.folio || busy || checkingOpen.current) return;
+    checkingOpen.current = true;
+    void window.folio.nextPdf().then(async file => {
+      if (file) {
+        await task(() => replace(new Uint8Array(file.data), file.name));
+        setPendingOpen(n => n + 1);
+      }
+    }).catch(e => {
+      setError(e instanceof Error ? e.message : String(e));
+      setPendingOpen(n => n + 1);
+    }).finally(() => { checkingOpen.current = false; });
+  }, [busy, pendingOpen]);
   const open = () => {
     if (window.folio)
       void task(async () => {
@@ -531,7 +548,7 @@ export default function App() {
                 </span>
                 <kbd>⌘O</kbd>
               </button>
-              <button
+              {preferences.showExplore && <button
                 className="start-action"
                 disabled={busy}
                 onClick={() =>
@@ -545,7 +562,7 @@ export default function App() {
                   Explore Folio
                   <small>Open the sample document and try the tools.</small>
                 </span>
-              </button>
+              </button>}
               <button
                 className="start-action"
                 onClick={() => setSettings(true)}
@@ -657,11 +674,13 @@ export default function App() {
         <div className="toolbar-group">
           <button
             className="icon-button"
-            title="Toggle pages"
-            aria-label="Toggle pages"
+            title={rail ? "Hide left sidebar" : "Show left sidebar"}
+            aria-label={rail ? "Hide left sidebar" : "Show left sidebar"}
+            aria-expanded={rail}
+            aria-controls="left-sidebar"
             onClick={() => setRail(!rail)}
           >
-            <PanelLeftClose size={18} />
+            {rail ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
           </button>
           <span className="separator" />
           {tools.map(({ id, label, icon: Icon }) => (
@@ -780,7 +799,7 @@ export default function App() {
       )}
       <div className="workspace">
         {rail && (
-          <aside className="page-rail">
+          <aside id="left-sidebar" className="page-rail">
             <div className="panel-heading">
               <span>
                 <Layers size={15} /> Navigate
@@ -1054,7 +1073,6 @@ export default function App() {
               <br />
               every page.
             </h2>
-            <p className="muted">Organize your document one page at a time.</p>
             <div className="document-info">
               <span>Current page</span>
               <strong>
@@ -1108,9 +1126,6 @@ export default function App() {
                 <Trash2 size={16} /> Delete this page
               </button>
             </div>
-            <p className="small-note">
-              Changes can be undone with ⌘Z. Save a copy when you're ready.
-            </p>
           </aside>
         )}
       </div>

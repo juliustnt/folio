@@ -8,3 +8,13 @@ fs.writeFileSync(
     python: path.join(__dirname, "..", ".venv", "bin", "python"),
   }),
 );
+
+// Ship a native helper so changing the PDF default does not require Xcode at runtime.
+const { execFileSync } = require("node:child_process");
+const nativeOutput = path.join(__dirname, "..", "artifacts", "native");
+fs.mkdirSync(nativeOutput, { recursive: true });
+execFileSync("/usr/bin/xcrun", [
+  "swiftc", path.join(__dirname, "..", "electron", "native", "pdf-default.swift"),
+  "-O", "-module-cache-path", path.join(nativeOutput, "module-cache"),
+  "-o", path.join(nativeOutput, "pdf-default"),
+], { stdio: "inherit" });

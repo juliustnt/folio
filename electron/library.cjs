@@ -42,6 +42,16 @@ class Library {
       if (existingId) { const index = state.voices.findIndex(v => v.id === existingId); if (index < 0) throw new Error('Saved voice not found.'); state.voices[index] = voice; } else state.voices.push(voice); return { id, name: voice.name, transcript: voice.transcript, ...segment };
     });
   }
+  async removeVoice(id) {
+    return this.update(async state => {
+      const voice = state.voices.find(item => item.id === id);
+      if (!voice) throw new Error('Saved voice not found.');
+      const folder = path.resolve(this.directory, 'voices');
+      if (path.dirname(path.resolve(voice.path)) !== folder) throw new Error('Invalid saved recording path.');
+      await fs.rm(voice.path, { force: true });
+      state.voices = state.voices.filter(item => item.id !== id);
+    });
+  }
   async voices() { return (await this.read()).voices.map(({ id, name, transcript, start, end, duration }) => ({ id, name, transcript, start, end, duration })); }
   async reference(id) { return (await this.read()).voices.find(voice => voice.id === id); }
 }

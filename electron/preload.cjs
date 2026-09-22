@@ -1,7 +1,13 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('folio', {
+  macOS: process.platform === 'darwin',
+  setDefaultPdfApp: () => ipcRenderer.invoke('pdf:default'),
+  repairPdfOpening: () => ipcRenderer.invoke('pdf:repair'),
   recents: () => ipcRenderer.invoke('library:recents'),
   openRecent: id => ipcRenderer.invoke('library:open', id),
+  removeVoice: id => ipcRenderer.invoke('voice:remove', id),
+  nextPdf: () => ipcRenderer.invoke('pdf:next'),
+  onPendingPdf: callback => { const listener = () => callback(); ipcRenderer.on('pdf:pending', listener); return () => ipcRenderer.removeListener('pdf:pending', listener); },
   voices: () => ipcRenderer.invoke('voice:list'),
   inspectVoice: id => ipcRenderer.invoke('voice:inspect', id),
   saveVoice: profile => ipcRenderer.invoke('voice:save', profile),

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { X, Settings2 } from "lucide-react";
 import { defaults, themes } from "./preferences";
 import type { Preferences, Theme } from "./preferences";
@@ -10,6 +11,29 @@ export default function Settings({
   update: (patch: Partial<Preferences>) => void;
   close: () => void;
 }) {
+  const [finderBusy, setFinderBusy] = useState(false);
+  const [finderMessage, setFinderMessage] = useState("");
+  const [finderError, setFinderError] = useState(false);
+  const finderAction = async (repair: boolean) => {
+    if (!window.folio || finderBusy) return;
+    setFinderBusy(true);
+    setFinderMessage("");
+    setFinderError(false);
+    try {
+      if (repair) {
+        const result = await window.folio.repairPdfOpening();
+        if (result) setFinderMessage(result.repaired
+          ? `${result.name} now uses your default PDF app. Try opening it from Finder again.`
+          : `${result.name} has no individual Open With override. Open it using Folio’s Open a PDF button; this repair does not apply to its warning.`);
+      } else {
+        await window.folio.setDefaultPdfApp();
+        setFinderMessage("Folio is now your default PDF app.");
+      }
+    } catch (e) {
+      setFinderError(true);
+      setFinderMessage((e instanceof Error ? e.message : String(e)).replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/, ""));
+    } finally { setFinderBusy(false); }
+  };
   return (
     <div className="modal-backdrop" onClick={close}>
       <section
@@ -27,6 +51,15 @@ export default function Settings({
             <X size={18} />
           </button>
         </header>
+        {window.folio?.macOS && <>
+          <h3>Opening PDFs from Finder</h3>
+          <p>Set Folio as the default for all PDFs. If a PDF shows an Apple verification warning after using Always Open With, repair that file’s opening preference.</p>
+          <div className="voice-actions">
+            <button disabled={finderBusy} onClick={() => void finderAction(false)}>Make Folio the default PDF app</button>
+            <button disabled={finderBusy} onClick={() => void finderAction(true)}>Repair Finder opening…</button>
+          </div>
+          {finderMessage && <p role={finderError ? "alert" : "status"}>{finderMessage}</p>}
+        </>}
         <h3>Workspace</h3>
         <div className="settings-grid">
           <label>
@@ -77,6 +110,11 @@ export default function Settings({
             onChange={(e) => update({ compact: e.target.checked })}
           />{" "}
           Compact interface
+        </label>
+        <label className="check-setting">
+          <input type="checkbox" checked={value.showExplore}
+            onChange={(e) => update({ showExplore: e.target.checked })} />{" "}
+          Show Explore Folio on the start screen
         </label>
         <h3>Appearance</h3>
         <div className="settings-grid">

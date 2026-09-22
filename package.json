@@ -14,7 +14,7 @@
     "test": "vitest run",
     "setup:tts": "sh scripts/setup-tts.sh",
     "package:mac": "npm run build && node scripts/package-mac.cjs && electron-builder --mac dir",
-    "check:desktop": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/speech.cjs && node --check electron/library.cjs"
+    "check:desktop": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/speech.cjs && node --check electron/library.cjs && node --check electron/pdf-associations.cjs"
   },
   "dependencies": {
     "lucide-react": "^1.47.0",
@@ -52,7 +52,23 @@
       "target": [
         "dir"
       ],
-      "identity": null
+      "identity": null,
+      "extendInfo": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "PDF document",
+            "CFBundleTypeRole": "Editor",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": [
+              "com.adobe.pdf"
+            ],
+            "CFBundleTypeExtensions": [
+              "pdf"
+            ],
+            "CFBundleTypeIconFile": "icon.icns"
+          }
+        ]
+      }
     },
     "win": {
       "icon": "electron/icons/folio.ico"
@@ -61,6 +77,13 @@
       {
         "from": "speech",
         "to": "speech"
+      },
+      {
+        "from": "artifacts/native",
+        "to": "native",
+        "filter": [
+          "pdf-default"
+        ]
       }
     ],
     "asar": true

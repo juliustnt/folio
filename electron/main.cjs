@@ -8,14 +8,49 @@ const { SpeechWorker } = require('./speech.cjs');
 const root = path.join(__dirname, '..');
 const speech = new SpeechWorker(app.isPackaged ? process.resourcesPath : root);
 let win; let dirty = false;
+const pendingPdfs = [];
+app.on('open-file', (event, filename) => {
+  event.preventDefault();
+  pendingPdfs.push(filename);
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.show(); win.focus();
+    win.webContents.send('pdf:pending');
+  } else if (app.isReady()) createWindow();
+});
 const dev = process.argv.includes('--dev');
 const appUrl = dev ? 'http://127.0.0.1:5173/' : pathToFileURL(path.join(root, 'dist', 'index.html')).href;
 function trusted(event) { if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame.url.split('#')[0] !== appUrl) throw new Error('Untrusted caller'); }
 function handle(channel, callback) { ipcMain.handle(channel, (event, ...args) => { trusted(event); return callback(...args); }); }
+handle('pdf:default', async () => {
+  if (process.platform !== 'darwin' || !app.isPackaged) throw new Error('Open the packaged Folio app to change the default PDF app.');
+  const { setDefaultPdfApp } = require('./pdf-associations.cjs');
+  await setDefaultPdfApp(process.resourcesPath, path.resolve(process.resourcesPath, '..', '..'));
+});
+handle('pdf:repair', async () => {
+  if (process.platform !== 'darwin') throw new Error('Finder repair is available on macOS.');
+  const result = await dialog.showOpenDialog(win, {
+    title: 'Repair Finder opening',
+    message: 'Choose a PDF to reset its individual Open With override. It will use your default PDF app; quarantine is preserved.',
+    buttonLabel: 'Repair opening',
+    properties: ['openFile'], filters: [{ name: 'PDF documents', extensions: ['pdf'] }],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const { repairPdfAssociation } = require('./pdf-associations.cjs');
+  return { name: path.basename(result.filePaths[0]), repaired: await repairPdfAssociation(result.filePaths[0]) };
+});
+handle('pdf:next', async () => {
+  const filename = pendingPdfs.shift();
+  if (!filename) return null;
+  const data = new Uint8Array(await readFile(filename));
+  await library.remember(filename);
+  return { name: path.basename(filename), data };
+});
 handle('pdf:open', async () => { const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'PDF documents', extensions: ['pdf'] }] }); if (result.canceled) return null; const filename = result.filePaths[0]; const data = new Uint8Array(await readFile(filename)); await library.remember(filename); return { name: path.basename(filename), data }; });
 handle('pdf:save', async (name, data) => { if (typeof name !== 'string' || !(data instanceof Uint8Array) || data.length > 512 * 1024 * 1024) throw new Error('Invalid PDF data.'); const result = await dialog.showSaveDialog(win, { defaultPath: path.basename(name), filters: [{ name: 'PDF documents', extensions: ['pdf'] }] }); if (result.canceled || !result.filePath) return false; await writeFile(result.filePath, data); await library.remember(result.filePath); return true; });
 handle('library:recents', async () => (await library.read()).recents);
 handle('library:open', id => library.openRecent(id));
+handle('voice:remove', id => library.removeVoice(id));
 handle('voice:list', () => library.voices());
 handle('voice:inspect', async id => {
   const saved = await library.reference(id); const source = voiceReferences.get(id) || saved?.path;

@@ -13,6 +13,37 @@ npm run desktop
 
 For development, `npm run desktop:dev` runs the interface with live updates. `npm run dev` runs a browser preview; Qwen speech and native file dialogs are desktop-only.
 
+To make Folio the default PDF app, build with `npm run package:mac`, move
+`release/mac-arm64/Folio.app` to Applications, and launch that copy. In Settings,
+click **Make Folio the default PDF app** and accept any macOS confirmation.
+This sets the default for the PDF content type, rather than creating an override
+on one document. Alternatively, use Finder’s **Get Info → Open with → Folio → Change All…**.
+PDFs opened from Finder also work when Folio is already running, with
+unsaved-change protection.
+
+### Finder verification warnings on PDFs
+
+macOS can block a quarantined document after **Always Open With** sets an
+individual app override. Apple documents the trigger in
+[this developer support discussion](https://developer.apple.com/forums/thread/795994).
+In Folio Settings, first make Folio the default PDF app, then click
+**Repair Finder opening…** and select the affected PDF. This removes only its
+`com.apple.LaunchServices.OpenWith` attribute, so it inherits the default PDF
+app. It preserves the PDF contents, quarantine, and all other metadata. This
+repairs the documented trigger; it is not a malware scan or a general bypass
+for Gatekeeper alerts. If no override exists, the app reports that this repair
+does not apply. Opening the PDF from Folio’s **Open a PDF** dialog remains an
+option. The repair requires write access to the selected file.
+
+The native default-app helper uses AppKit’s content-type API and is compiled
+when packaging on macOS (Xcode Command Line Tools required). End users do not
+need a compiler. Default-app changes require the packaged Folio app.
+
+Settings includes **Show Explore Folio on the start screen**. To delete a custom
+voice, select it under **Listen → My cloned voice → Saved voices** and click
+**Remove voice**. This removes the saved profile and Folio’s audio copy; the
+original recording is preserved.
+
 ## Features
 
 - Open a PDF through the native file picker, or drag it into the app.

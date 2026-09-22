@@ -24,6 +24,7 @@ export type Preferences = {
   panel: "listen" | "details";
   sidebarVisible: boolean;
   navigationVisible: boolean;
+  showExplore: boolean;
 };
 export const defaults: Preferences = {
   theme: "burgundy",
@@ -42,6 +43,7 @@ export const defaults: Preferences = {
   panel: "details",
   sidebarVisible: true,
   navigationVisible: true,
+  showExplore: true,
 };
 export function readLocal<T>(key: string, fallback: T): T {
   try {
