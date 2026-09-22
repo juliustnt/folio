@@ -18,6 +18,8 @@ import {
   Minus,
   MousePointer2,
   PanelLeftClose,
+  PanelRightClose,
+  PanelRightOpen,
   PenLine,
   Plus,
   Redo2,
@@ -34,6 +36,7 @@ import {
   BookmarkPlus,
   Bookmark as BookmarkIcon,
 } from "lucide-react";
+import { readerShortcut } from "./readerControls";
 import { PdfPage } from "./PdfPage";
 import type { Tool } from "./PdfPage";
 import Listen from "./Listen";
@@ -98,8 +101,12 @@ export default function App() {
   const [page, setPage] = useState(1);
   const [zoom, setZoom] = useState(preferences.zoom);
   const [tool, setTool] = useState<Tool>("select");
-  const [panel, setPanel] = useState<"listen" | "details">("listen");
-  const [rail, setRail] = useState(true);
+  const panel = preferences.panel;
+  const setPanel = (panel: "listen" | "details") =>
+    updatePreferences({ panel, sidebarVisible: true });
+  const rail = preferences.navigationVisible;
+  const setRail = (navigationVisible: boolean) =>
+    updatePreferences({ navigationVisible });
   const [query, setQuery] = useState("");
   const [readingHighlight, setReadingHighlight] = useState<ReadingHighlight | null>(null);
   const [texts, setTexts] = useState<string[]>([]);
@@ -292,6 +299,19 @@ export default function App() {
   };
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const action = readerShortcut(e);
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (action && !target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]') && !settings && !document.querySelector('[role="dialog"]')) {
+        if (!pdf || busy) return;
+        e.preventDefault();
+        if (action === "zoom-in" || action === "zoom-out" || action === "actual-size") {
+          setFitMode("manual");
+          setZoom(current => action === "actual-size" ? 1 : Math.max(0.3, Math.min(3, Math.round((current + (action === "zoom-in" ? 0.1 : -0.1)) * 100) / 100)));
+        } else {
+          setPage(current => action === "first-page" ? 1 : action === "last-page" ? pdf.numPages : Math.max(1, Math.min(pdf.numPages, current + (action === "next-page" ? 1 : -1))));
+        }
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey)) return;
       if (["o", "s", "z"].includes(e.key.toLowerCase())) {
         if (
@@ -685,10 +705,21 @@ export default function App() {
           <button
             aria-label="Listen"
             className={panel === "listen" ? "active" : ""}
-            onClick={() => setPanel(panel === "listen" ? "details" : "listen")}
+            aria-pressed={panel === "listen"}
+            onClick={() => setPanel(panel === "listen" && preferences.sidebarVisible ? "details" : "listen")}
           >
             <Headphones size={16} />
             <span>Listen</span>
+          </button>
+          <button
+            className="icon-button"
+            title={preferences.sidebarVisible ? "Hide right sidebar" : "Show right sidebar"}
+            aria-label={preferences.sidebarVisible ? "Hide right sidebar" : "Show right sidebar"}
+            aria-expanded={preferences.sidebarVisible}
+            aria-controls="right-sidebar"
+            onClick={() => updatePreferences({ sidebarVisible: !preferences.sidebarVisible })}
+          >
+            {preferences.sidebarVisible ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
           </button>
         </div>
       </div>
@@ -936,6 +967,7 @@ export default function App() {
             <button
               className="icon-button"
               aria-label="Previous page"
+              title="Previous page (⌘/Ctrl ←)"
               disabled={page <= 1 || busy}
               onClick={() => setPage(page - 1)}
             >
@@ -947,6 +979,7 @@ export default function App() {
             <button
               className="icon-button"
               aria-label="Next page"
+              title="Next page (⌘/Ctrl →)"
               disabled={!pdf || page >= pdf.numPages || busy}
               onClick={() => setPage(page + 1)}
             >
@@ -956,6 +989,7 @@ export default function App() {
             <button
               className="icon-button"
               aria-label="Zoom out"
+              title="Zoom out (⌘/Ctrl −)"
               disabled={zoom <= 0.3}
               onClick={() => {
                 setFitMode("manual");
@@ -968,6 +1002,7 @@ export default function App() {
             <button
               className="icon-button"
               aria-label="Zoom in"
+              title="Zoom in (⌘/Ctrl +)"
               disabled={zoom >= 3}
               onClick={() => {
                 setFitMode("manual");
@@ -996,6 +1031,7 @@ export default function App() {
         </main>
         {panel === "listen" ? (
           <Listen
+            hidden={!preferences.sidebarVisible}
             text={texts[page - 1] || ""}
             page={page}
             texts={texts}
@@ -1007,7 +1043,7 @@ export default function App() {
             updatePreferences={updatePreferences}
           />
         ) : (
-          <aside className="details-panel">
+          <aside id="right-sidebar" className="details-panel" hidden={!preferences.sidebarVisible}>
             <div className="panel-heading">
               <span>
                 <FileText size={16} /> Document

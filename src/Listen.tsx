@@ -15,6 +15,7 @@ import { readingKey } from "./readingHighlight";
 import type { ReadingHighlight } from "./readingHighlight";
 import { documentPassages, SpeechQueue } from "./speech";
 export default function Listen({
+  hidden = false,
   text,
   page,
   texts,
@@ -25,6 +26,7 @@ export default function Listen({
   preferences,
   updatePreferences,
 }: {
+  hidden?: boolean;
   text: string;
   page: number;
   texts: string[];
@@ -292,7 +294,7 @@ export default function Listen({
     (savedProfile.end === undefined || savedProfile.duration === undefined);
 
   return (
-    <aside className="listen-panel">
+    <aside id="right-sidebar" className="listen-panel" hidden={hidden}>
       <div className="panel-heading">
         <span>
           <Headphones size={16} /> Listen

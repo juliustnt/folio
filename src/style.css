@@ -428,6 +428,10 @@ kbd {
   min-width: 40px;
   text-align: center;
 }
+.listen-panel[hidden],
+.details-panel[hidden] {
+  display: none;
+}
 .listen-panel,
 .details-panel {
   width: 280px;

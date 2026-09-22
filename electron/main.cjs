@@ -57,7 +57,7 @@ handle('tts:speak', async request => {
 handle('tts:stop', () => speech.stop());
 ipcMain.on('document:dirty', (event, value) => { trusted(event); dirty = !!value; win.setDocumentEdited(dirty); });
 function createWindow() {
-  win = new BrowserWindow({ width: 1360, height: 920, minWidth: 820, minHeight: 620, title: 'Folio', backgroundColor: '#f8faf5', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true } });
+  win = new BrowserWindow({ width: 1360, height: 920, minWidth: 820, minHeight: 620, title: 'Folio', icon: path.join(__dirname, 'icons', process.platform === 'win32' ? 'folio.ico' : 'folio.png'), backgroundColor: '#f8faf5', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true } });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => { if (url !== appUrl) event.preventDefault(); });
   win.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));

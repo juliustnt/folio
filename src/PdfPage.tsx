@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { TextLayer } from "pdfjs-dist";
 import type { PDFDocumentProxy, PageViewport } from "pdfjs-dist";
+import { revealOffset } from "./readerControls";
 import { readingOffsets } from "./readingHighlight";
 import type { ReadingHighlight } from "./readingHighlight";
 import type { Mark, Point } from "./pdf";
@@ -115,6 +116,15 @@ export function PdfPage({
     const range = document.createRange();
     range.setStart(first.node, first.offset);
     range.setEnd(last.node, last.offset + 1);
+    const scroll = root.current.closest<HTMLElement>(".paper-scroll");
+    if (scroll) {
+      const passage = range.getBoundingClientRect();
+      const visible = scroll.getBoundingClientRect();
+      const padding = 24;
+      const top = revealOffset(passage.top, passage.bottom, visible.top + padding, visible.top + scroll.clientHeight - padding);
+      const left = revealOffset(passage.left, passage.right, visible.left + padding, visible.left + scroll.clientWidth - padding);
+      if (top || left) scroll.scrollBy({ top, left, behavior: "instant" });
+    }
     const bounds = root.current.getBoundingClientRect();
     setReadingRects(Array.from(range.getClientRects()).filter(rect => rect.width && rect.height).map(rect => ({
       x: rect.left - bounds.left, y: rect.top - bounds.top, width: rect.width, height: rect.height,

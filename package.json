@@ -47,11 +47,15 @@
       "package.json"
     ],
     "mac": {
+      "icon": "electron/icons/folio.icns",
       "category": "public.app-category.productivity",
       "target": [
         "dir"
       ],
       "identity": null
+    },
+    "win": {
+      "icon": "electron/icons/folio.ico"
     },
     "extraResources": [
       {

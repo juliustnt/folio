@@ -21,6 +21,9 @@ export type Preferences = {
   rememberPage: boolean;
   compact: boolean;
   dark: boolean;
+  panel: "listen" | "details";
+  sidebarVisible: boolean;
+  navigationVisible: boolean;
 };
 export const defaults: Preferences = {
   theme: "burgundy",
@@ -36,6 +39,9 @@ export const defaults: Preferences = {
   rememberPage: true,
   compact: false,
   dark: false,
+  panel: "details",
+  sidebarVisible: true,
+  navigationVisible: true,
 };
 export function readLocal<T>(key: string, fallback: T): T {
   try {
