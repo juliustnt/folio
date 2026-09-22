@@ -38,6 +38,7 @@ import {
   Bookmark as BookmarkIcon,
 } from "lucide-react";
 import { readerShortcut } from "./readerControls";
+import { sidebarSplash, startupSplash } from "./splashes";
 import { PdfPage } from "./PdfPage";
 import type { Tool } from "./PdfPage";
 import Listen from "./Listen";
@@ -533,8 +534,8 @@ export default function App() {
         <main className="start-screen">
           <div className="start-intro">
             <h1>
-              A fresh page.
-              <br />A familiar place.
+              {startupSplash[0]}
+              <br />{startupSplash[1]}
             </h1>
             <p>Read, mark up, and listen.</p>
           </div>
@@ -1069,9 +1070,9 @@ export default function App() {
               </span>
             </div>
             <h2>
-              A place for
+              {sidebarSplash[0]}
               <br />
-              every page.
+              {sidebarSplash[1]}
             </h2>
             <div className="document-info">
               <span>Current page</span>
