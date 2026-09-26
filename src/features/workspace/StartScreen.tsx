@@ -7,7 +7,7 @@ import {
   Settings2,
 } from "lucide-react";
 import type { DocumentWorkspace } from "./useDocumentWorkspace";
-import { startupSplash } from "../splashes";
+import { startupSplash } from "./splashes";
 
 type StartScreenProps = Pick<
   DocumentWorkspace,

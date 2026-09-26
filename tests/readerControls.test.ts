@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readerShortcut, revealOffset } from "../src/readerControls";
+import { readerShortcut, revealOffset } from "../src/features/reader/readerControls";
 
 describe("reader shortcuts", () => {
   const event = { metaKey: true, ctrlKey: false, altKey: false };

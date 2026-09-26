@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import type { FitMode } from "./types";
+import type { FitMode } from "../../models/workspace";
 
 type PageNavigationOptions = {
   page: number;

@@ -90,16 +90,7 @@ This is a functional first release, not Acrobat feature parity. It adds PDF cont
 
 Page merging copies page content, not every document-level feature such as outlines, attachments or interactive forms. Existing signatures are not preserved as valid after editing. The UI renders only the active page and lazily renders thumbnails; edits rewrite the file and keep in-memory snapshots, so very large files need further optimization. Nothing is autosaved; use **Save a copy** before closing.
 
-## Structure
-
-- `src/` — application composition, rendering, PDF operations and preferences.
-- `src/workspace/` — document/tab lifecycle, edit history, reader hooks and workspace UI components.
-- `src/listen/` — read-aloud and saved-voice controller, used by `src/Listen.tsx`.
-- `electron/` — desktop lifecycle, restricted preload bridge, shared IPC authorization, speech worker and atomic library storage.
-- `electron/handlers/` — PDF/recent-file and voice/speech request handlers, registered through the shared caller check.
-- `speech/` — JSON-lines Qwen worker and Python dependencies.
-- `tests/` — PDF/speech logic, desktop authorization and lifecycle, handler, and storage regression tests.
-- `docs/refactoring/` — phased architecture reviews, complete refactored source snapshots and validation notes. The three-phase plan is complete; see [Phase 3](docs/refactoring/phase-3-desktop.md) for the latest validation and its limits.
+Feature-specific UI and helpers stay together. Shared presentation belongs in `components`, external calls in `api`, and feature-independent primitives in `core` when those modules are extracted. This relocation preserves existing module contents and dependencies: embedded types, storage/bookmark helpers in preferences, and speech text chunking in the PDF module remain for a separate extraction pass. Historical refactoring snapshots retain their original paths.
 
 ## References
 
@@ -107,14 +98,6 @@ Page merging copies page content, not every document-level feature such as outli
 - [pdf-lib](https://pdf-lib.js.org/)
 - [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS)
 - [MLX Audio Qwen API](https://github.com/Blaizzy/mlx-audio/blob/main/docs/getting-started/quickstart-python.md)
-
-## Paragraph reading and voice cloning
-
-Choose **My cloned voice** in the Listen panel, select a clear MP3, WAV or FLAC sample (3–30 seconds, under 20 MB), then paste its exact transcript. Read the page or a selected passage as usual. The reference stays local and is used for inference; this does not fine-tune or train new model weights. Click **Save voice on this Mac** after choosing a sample and entering its transcript. Folio copies the sample into its application-data folder and saves the name and transcript in `library.json`. Saved voices remain available after restarting or moving the original recording. Select them from **Saved voices** in Listen.
-
-Cloning uses `mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit`, downloaded on its first use. The worker decodes MP3 locally, resamples to mono 24 kHz, caches the decoded reference, and keeps one Qwen model resident. File access is limited to samples selected in the native picker; the renderer sends an opaque reference ID.
-
-Paragraph boundaries are inferred from PDF line spacing, indentation and font changes. Unusual layouts and multi-column reading order may still need manual text selection. Single newlines in a selected passage are treated as wrapping; blank lines separate paragraphs. Preloading is bounded to two future passages unless whole-page preparation is selected. Stop, document/page changes and closing Listen cancel pending playback and generation.
 
 ## Start, navigation, and preferences
 
@@ -133,37 +116,3 @@ Recordings can be longer than 30 seconds. **Edit voice** previews the original a
 Voice editing now opens in a separate dialog. The Listen panel keeps playback controls visible and scrolls only its options when necessary. PDFs fit the entire page to the available window by default and refit on resize; use Zoom, Fit width, or Fit whole page to change the view. Settings can disable automatic page fitting.
 
 Validation: `npm test`, `npm run build`, and `.venv/bin/python -m unittest discover -s tests -p 'test_reference.py'`.
-## LaTeX and VimTeX live preview
-
-Open a PDF in the desktop app and turn **LaTeX on** in the document bar.
-Folio checks the source once per second and reloads changed compiler output,
-keeping your page (clamped if pages were removed), zoom, and scroll position.
-It waits for writes to settle and retries missing or unreadable output while
-keeping the last readable PDF visible. Unsaved edits pause reloading; saving a
-copy lets it resume. The compiler's source PDF is never overwritten.
-
-LaTeX mode is enabled automatically when a matching `.synctex.gz` or `.synctex`
-file is beside the PDF, or when launched with `--latex`:
-
-```sh
-/Applications/Folio.app/Contents/MacOS/Folio --latex /absolute/path/paper.pdf
-# From this checkout:
-npm run desktop -- --latex /absolute/path/paper.pdf
-```
-
-For [VimTeX's general viewer](https://github.com/lervag/vimtex), add this to your
-Vim configuration (adjust the installed application path if needed):
-
-```vim
-let g:vimtex_view_method = 'general'
-let g:vimtex_view_general_viewer = '/Applications/Folio.app/Contents/MacOS/Folio'
-let g:vimtex_view_general_options = '--latex @pdf'
-```
-
-Use VimTeX's usual continuous compilation and viewer commands. Subsequent
-launches reuse the running Folio instance; opening the same PDF again preserves
-its current position. Automatic reloads do not focus the window, so you can keep
-writing in Vim. This supports live PDF preview; SyncTeX forward/inverse source
-navigation is not implemented. Browser previews and browser file drops do not
-retain filesystem access; open through the desktop file picker or launcher to
-use live reload. Rebuild the packaged app to include this feature.

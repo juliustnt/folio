@@ -1,4 +1,4 @@
-import { readLocal, writeLocal } from "./preferences";
+import { readLocal, writeLocal } from "../settings/preferences";
 
 const splashes = [
   ["A fresh page.", "A familiar place."],
@@ -11,8 +11,13 @@ const splashes = [
 
 function nextSplash() {
   const stored = readLocal<unknown>("folio.splash", -1);
-  const previous = typeof stored === "number" && Number.isInteger(stored)
-    && stored >= 0 && stored < splashes.length ? stored : -1;
+  const previous =
+    typeof stored === "number" &&
+    Number.isInteger(stored) &&
+    stored >= 0 &&
+    stored < splashes.length
+      ? stored
+      : -1;
   const index = (previous + 1) % splashes.length;
   try {
     writeLocal("folio.splash", index);

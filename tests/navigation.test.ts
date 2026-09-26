@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { documentPassages } from '../src/speech';
-import { remapBookmarks } from '../src/preferences';
-import { readContents } from '../src/Contents';
+import { documentPassages } from '../src/features/listen/speech';
+import { remapBookmarks } from '../src/features/settings/preferences';
+import { readContents } from '../src/features/reader/Contents';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 describe('continuous reading', () => {
   it('queues future pages in order and skips empty pages', () => { const plan = documentPassages(['First.','', 'Third.\n\nMore.'], 1, true); expect(plan.map(p => p.page)).toEqual([1,3,3]); expect(plan.map(p => p.text)).toEqual(['First.','Third.','More.']); });

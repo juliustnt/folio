@@ -13,8 +13,8 @@ import {
   Undo2,
 } from "lucide-react";
 import type { DocumentWorkspace } from "./useDocumentWorkspace";
-import type { Preferences } from "../preferences";
-import type { Tool } from "../PdfPage";
+import type { Preferences } from "../settings/preferences";
+import type { Tool } from "../reader/PdfPage";
 
 type WorkspaceToolbarProps = Pick<
   DocumentWorkspace,

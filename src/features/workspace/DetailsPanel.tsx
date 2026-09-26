@@ -7,9 +7,9 @@ import {
 } from "lucide-react";
 import type { DocumentWorkspace } from "./useDocumentWorkspace";
 import type { ReactNode } from "react";
-import { sidebarSplash } from "../splashes";
-import { rotatePage, movePage, deletePage } from "../pdf";
-import { remapBookmarks } from "../preferences";
+import { sidebarSplash } from "./splashes";
+import { rotatePage, movePage, deletePage } from "../reader/pdf";
+import { remapBookmarks } from "../settings/preferences";
 
 type DetailsPanelProps = Pick<
   DocumentWorkspace,

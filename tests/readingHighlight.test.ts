@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readingKey, readingOffsets } from "../src/readingHighlight";
-import { readingPassages } from "../src/speech";
+import { readingKey, readingOffsets } from "../src/features/reader/readingHighlight";
+import { readingPassages } from "../src/features/listen/speech";
 
 describe("reading highlight text mapping", () => {
   it("maps spoken text back to PDF characters across wrapping and hyphenation", () => {

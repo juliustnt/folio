@@ -1,5 +1,5 @@
-import type { Tool } from "../PdfPage";
-import type { Bookmark } from "../preferences";
+import type { Tool } from "../features/reader/PdfPage";
+import type { Bookmark } from "../features/settings/preferences";
 
 export type DocumentSource = { source: string; version: string; latex: boolean };
 export type DocumentSnapshot = { bytes: Uint8Array; page: number; bookmarks: Bookmark[] };

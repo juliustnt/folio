@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { Preferences } from "../preferences";
-import { readingKey } from "../readingHighlight";
-import type { ReadingHighlight } from "../readingHighlight";
-import { documentPassages, SpeechQueue } from "../speech";
-import { speechError } from "../voice";
-import type { VoiceProfile } from "../voice";
+import type { Preferences } from "../settings/preferences";
+import { readingKey } from "../reader/readingHighlight";
+import type { ReadingHighlight } from "../reader/readingHighlight";
+import { documentPassages, SpeechQueue } from "./speech";
+import { speechError } from "./voice";
+import type { VoiceProfile } from "./voice";
 
 export type ListenControllerOptions = {
   page: number;

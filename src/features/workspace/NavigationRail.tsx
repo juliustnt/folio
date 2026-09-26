@@ -9,10 +9,10 @@ import {
   Bookmark as BookmarkIcon,
 } from "lucide-react";
 import type { DocumentWorkspace } from "./useDocumentWorkspace";
-import { PdfPage } from "../PdfPage";
-import Contents from "../Contents";
-import type { Bookmark } from "../preferences";
-import type { Navigation } from "./types";
+import { PdfPage } from "../reader/PdfPage";
+import Contents from "../reader/Contents";
+import type { Bookmark } from "../settings/preferences";
+import type { Navigation } from "../../models/workspace";
 
 type NavigationRailProps = Pick<
   DocumentWorkspace,

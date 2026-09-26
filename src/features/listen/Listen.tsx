@@ -8,8 +8,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import VoiceEditor from "./VoiceEditor";
-import { useListenController } from "./listen/useListenController";
-import type { ListenControllerOptions } from "./listen/useListenController";
+import { useListenController } from "./useListenController";
+import type { ListenControllerOptions } from "./useListenController";
 
 type ListenProps = ListenControllerOptions & {
   hidden?: boolean;

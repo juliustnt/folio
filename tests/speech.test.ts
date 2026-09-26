@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractReadingText, readingPassages, SpeechQueue } from '../src/speech';
+import { extractReadingText, readingPassages, SpeechQueue } from '../src/features/listen/speech';
 const line = (str: string, y: number, x = 50) => ({ str, transform: [12,0,0,12,x,y], width: 200, height: 12, hasEOL: true });
 describe('paragraph reading', () => {
   it('joins wrapped lines, removes line-end hyphenation, preserves paragraphs', () => {

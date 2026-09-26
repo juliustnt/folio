@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
-import { addMark, chunkText, createWelcome, deletePage, mergePdf, movePage, rotatePage } from '../src/pdf';
+import { addMark, chunkText, createWelcome, deletePage, mergePdf, movePage, rotatePage } from '../src/features/reader/pdf';
 
 describe('PDF editing and export', () => {
   it('round-trips rotation, reordering, deletion and merging without changing the source', async () => {

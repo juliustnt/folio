@@ -8,7 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import type { DocumentWorkspace } from "./useDocumentWorkspace";
-import { PdfPage } from "../PdfPage";
+import { PdfPage } from "../reader/PdfPage";
 
 type DocumentStageProps = Pick<
   DocumentWorkspace,

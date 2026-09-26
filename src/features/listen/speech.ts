@@ -1,4 +1,4 @@
-import { chunkText } from "./pdf";
+import { chunkText } from "../reader/pdf";
 
 type TextItem = {
   str: string;

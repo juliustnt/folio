@@ -1,4 +1,4 @@
-import type { VoiceProfile } from "./voice";
+import type { VoiceProfile } from "../features/listen/voice";
 export type DesktopPdf = { name: string; data: Uint8Array; source: string; version: string; latex: boolean };
 declare global {
   interface Window {

@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { readerShortcut } from "../readerControls";
-import type { FitMode } from "./types";
+import { readerShortcut } from "../reader/readerControls";
+import type { FitMode } from "../../models/workspace";
 
 type ShortcutOptions = {
   pdf: PDFDocumentProxy | null;
