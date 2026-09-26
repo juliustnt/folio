@@ -92,10 +92,14 @@ Page merging copies page content, not every document-level feature such as outli
 
 ## Structure
 
-- `src/` — interface, rendering, PDF operations and read-aloud controller.
-- `electron/` — sandboxed window, restricted preload bridge, native dialogs and speech process lifecycle.
+- `src/` — application composition, rendering, PDF operations and preferences.
+- `src/workspace/` — document/tab lifecycle, edit history, reader hooks and workspace UI components.
+- `src/listen/` — read-aloud and saved-voice controller, used by `src/Listen.tsx`.
+- `electron/` — desktop lifecycle, restricted preload bridge, shared IPC authorization, speech worker and atomic library storage.
+- `electron/handlers/` — PDF/recent-file and voice/speech request handlers, registered through the shared caller check.
 - `speech/` — JSON-lines Qwen worker and Python dependencies.
-- `tests/` — PDF and speech chunking tests.
+- `tests/` — PDF/speech logic, desktop authorization and lifecycle, handler, and storage regression tests.
+- `docs/refactoring/` — phased architecture reviews, complete refactored source snapshots and validation notes. The three-phase plan is complete; see [Phase 3](docs/refactoring/phase-3-desktop.md) for the latest validation and its limits.
 
 ## References
 

@@ -92,3 +92,31 @@ describe('removing custom voices', () => {
     } finally { await rm(directory, { recursive: true }); }
   });
 });
+
+describe('library failure recovery', () => {
+  it('rejects a failed update without poisoning the queue or persisting partial changes', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'folio-library-recovery-'));
+    try {
+      const library = new Library(directory);
+      const failed = library.update(state => {
+        state.recents.push({ id: 'partial' });
+        throw new Error('Update failed');
+      });
+      const rejection = expect(failed).rejects.toThrow('Update failed');
+      const next = library.remember('/next.pdf');
+      await rejection;
+      const saved = await next;
+      expect((await new Library(directory).read()).recents).toEqual([saved]);
+    } finally { await rm(directory, { recursive: true }); }
+  });
+
+  it('reports malformed storage rather than replacing it with an empty library', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'folio-library-corrupt-'));
+    try {
+      const filename = path.join(directory, 'library.json');
+      await writeFile(filename, '{broken');
+      await expect(new Library(directory).remember('/next.pdf')).rejects.toThrow();
+      expect(await readFile(filename, 'utf8')).toBe('{broken');
+    } finally { await rm(directory, { recursive: true }); }
+  });
+});

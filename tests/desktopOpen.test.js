@@ -2,7 +2,7 @@ import { it, expect } from 'vitest';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
+const require = createRequire(new URL('../electron/main.cjs', import.meta.url));
 
 it('queues Finder opens before window creation and consumes each PDF once', async () => {
   const events = new Map();
