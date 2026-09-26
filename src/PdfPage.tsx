@@ -11,6 +11,8 @@ export function PdfPage({
   page,
   scale,
   thumbnail = false,
+  animateRefresh = false,
+  continuous = false,
   tool = "select",
   text = "",
   color = "#d4b645",
@@ -23,6 +25,8 @@ export function PdfPage({
   page: number;
   scale: number;
   thumbnail?: boolean;
+  animateRefresh?: boolean;
+  continuous?: boolean;
   tool?: Tool;
   text?: string;
   color?: string;
@@ -33,7 +37,7 @@ export function PdfPage({
 }) {
   const [textVersion, setTextVersion] = useState(0);
   const [readingRects, setReadingRects] = useState<{ x: number; y: number; width: number; height: number }[]>([]);
-  const canvas = useRef<HTMLCanvasElement>(null);
+  const canvas = useRef<HTMLDivElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const viewport = useRef<PageViewport | null>(null);
@@ -43,18 +47,28 @@ export function PdfPage({
   });
   const [points, setPoints] = useState<Point[]>([]);
   const drawing = useRef<Point[]>([]);
-  const [visible, setVisible] = useState(!thumbnail);
+  const [visible, setVisible] = useState(!thumbnail && !continuous);
   useEffect(() => {
-    if (!thumbnail || !root.current) return;
+    if ((!thumbnail && !continuous) || !root.current) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
         setVisible(true);
         observer.disconnect();
       }
-    });
+    }, { rootMargin: "800px" });
     observer.observe(root.current);
     return () => observer.disconnect();
-  }, [thumbnail]);
+  }, [thumbnail, continuous]);
+  useEffect(() => {
+    if (!continuous || visible) return;
+    let cancelled = false;
+    void pdf.getPage(page).then(p => {
+      if (cancelled) return;
+      const v = p.getViewport({ scale });
+      setDimensions({ width: v.width, height: v.height });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [pdf, page, scale, continuous, visible]);
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
@@ -68,27 +82,51 @@ export function PdfPage({
       const v = p.getViewport({
         scale: thumbnail ? 116 / p.getViewport({ scale: 1 }).width : scale,
       });
-      viewport.current = v;
-      setDimensions({ width: v.width, height: v.height });
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.current.width = Math.floor(v.width * ratio);
-      canvas.current.height = Math.floor(v.height * ratio);
+      const nextCanvas = document.createElement("canvas");
+      nextCanvas.width = Math.floor(v.width * ratio);
+      nextCanvas.height = Math.floor(v.height * ratio);
+      nextCanvas.style.width = `${v.width}px`;
+      nextCanvas.style.height = `${v.height}px`;
       render = p.render({
-        canvas: canvas.current,
+        canvas: nextCanvas,
         viewport: v,
         transform: [ratio, 0, 0, ratio, 0, 0],
       });
       await render.promise;
-      if (cancelled || thumbnail || !layer.current) return;
-      layer.current.replaceChildren();
-      textLayer = new TextLayer({
-        textContentSource: await p.getTextContent(),
-        container: layer.current,
-        viewport: v,
-      });
-      if (!cancelled) {
+      if (cancelled || !canvas.current) return;
+      const nextLayer = document.createElement("div");
+      if (!thumbnail) {
+        textLayer = new TextLayer({
+          textContentSource: await p.getTextContent(),
+          container: nextLayer,
+          viewport: v,
+        });
+        if (cancelled) return;
         await textLayer.render();
-        if (!cancelled) setTextVersion((version) => version + 1);
+      }
+      if (cancelled || !canvas.current) return;
+      const previous = canvas.current.firstElementChild;
+      canvas.current.replaceChildren(nextCanvas);
+      // Keep the completed previous frame above the new page during the fade.
+      if (previous && animateRefresh && !thumbnail && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const overlay = previous as HTMLCanvasElement;
+        overlay.style.position = "absolute";
+        overlay.style.inset = "0";
+        overlay.style.pointerEvents = "none";
+        canvas.current.append(overlay);
+        const fade = overlay.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: "ease-out" });
+        fade.onfinish = () => overlay.remove();
+      }
+      viewport.current = v;
+      setDimensions({ width: v.width, height: v.height });
+      if (!thumbnail && layer.current) {
+        for (const property of Array.from(nextLayer.style)) {
+          layer.current.style.setProperty(property, nextLayer.style.getPropertyValue(property));
+        }
+        layer.current.setAttribute("data-main-rotation", String(v.rotation));
+        layer.current.replaceChildren(...Array.from(nextLayer.childNodes));
+        setTextVersion((version) => version + 1);
       }
     };
     run().catch((e) => {
@@ -100,7 +138,7 @@ export function PdfPage({
       render?.cancel();
       textLayer?.cancel();
     };
-  }, [pdf, page, scale, thumbnail, visible, onError]);
+  }, [pdf, page, scale, thumbnail, visible, onError, animateRefresh]);
   useEffect(() => {
     setReadingRects([]);
     if (thumbnail || !layer.current || !root.current || readingHighlight?.page !== page) return;
@@ -182,6 +220,7 @@ export function PdfPage({
   return (
     <div
       ref={root}
+      data-page={page}
       className={`pdf-page ${thumbnail ? "thumbnail" : ""} tool-${tool}`}
       style={dimensions}
       onPointerDown={start}
@@ -197,7 +236,7 @@ export function PdfPage({
         setPoints([]);
       }}
     >
-      <canvas ref={canvas} style={dimensions} />
+      <div ref={canvas} className="page-canvas" />
       {!thumbnail && (
         <div
           ref={layer}

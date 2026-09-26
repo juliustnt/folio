@@ -116,6 +116,11 @@ export default function Settings({
             onChange={(e) => update({ showExplore: e.target.checked })} />{" "}
           Show Explore Folio on the start screen
         </label>
+        <label className="check-setting">
+          <input type="checkbox" checked={value.showLatex}
+            onChange={(e) => update({ showLatex: e.target.checked })} />{" "}
+          Show LaTeX mode button in the right sidebar
+        </label>
         <h3>Appearance</h3>
         <div className="settings-grid">
           <label>

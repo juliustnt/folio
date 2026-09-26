@@ -25,6 +25,7 @@ export type Preferences = {
   sidebarVisible: boolean;
   navigationVisible: boolean;
   showExplore: boolean;
+  showLatex: boolean;
 };
 export const defaults: Preferences = {
   theme: "burgundy",
@@ -44,6 +45,7 @@ export const defaults: Preferences = {
   sidebarVisible: true,
   navigationVisible: true,
   showExplore: true,
+  showLatex: true,
 };
 export function readLocal<T>(key: string, fallback: T): T {
   try {

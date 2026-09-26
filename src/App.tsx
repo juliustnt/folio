@@ -71,7 +71,26 @@ async function documentIdentity(data: Uint8Array) {
     .map((n) => n.toString(16).padStart(2, "0"))
     .join("");
 }
+type Source = { source: string; version: string; latex: boolean };
 type Snapshot = { bytes: Uint8Array; page: number; bookmarks: Bookmark[] };
+type FitMode = "manual" | "width" | "page";
+type DocumentTab = {
+  id: string;
+  name: string;
+  source: Source | null;
+  latex: boolean;
+  documentKey: string;
+  bookmarks: Bookmark[];
+  bytes: Uint8Array;
+  savedBytes: Uint8Array | null;
+  page: number;
+  zoom: number;
+  fitMode: FitMode;
+  past: Snapshot[];
+  future: Snapshot[];
+  tool: Tool;
+  query: string;
+};
 export default function App() {
   const [preferences, updatePreferences] = usePreferences();
   const [settings, setSettings] = useState(false);
@@ -94,9 +113,14 @@ export default function App() {
       .then(setRecents)
       .catch((e) => setError(String(e)));
   };
+  const [source, setSource] = useState<Source | null>(null);
+  const [tabs, setTabs] = useState<DocumentTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState("");
+  const [latex, setLatex] = useState(false);
+  const [reloadStatus, setReloadStatus] = useState("");
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
-  const [fitMode, setFitMode] = useState<"manual" | "width" | "page">(
+  const [fitMode, setFitMode] = useState<FitMode>(
     preferences.fitPage ? "page" : "manual",
   );
   const [name, setName] = useState("Welcome to Folio.pdf");
@@ -110,9 +134,19 @@ export default function App() {
       clearTimeout(timeout);
       timeout = setTimeout(() => setReaderIdle(true), 3000);
     };
-    const events = ["pointermove", "pointerdown", "keydown", "wheel", "scroll", "focusin"] as const;
+    const events = [
+      "pointermove",
+      "pointerdown",
+      "keydown",
+      "wheel",
+      "scroll",
+      "focusin",
+    ] as const;
     for (const event of events)
-      window.addEventListener(event, revealControls, { capture: true, passive: true });
+      window.addEventListener(event, revealControls, {
+        capture: true,
+        passive: true,
+      });
     revealControls();
     return () => {
       clearTimeout(timeout);
@@ -128,7 +162,8 @@ export default function App() {
   const setRail = (navigationVisible: boolean) =>
     updatePreferences({ navigationVisible });
   const [query, setQuery] = useState("");
-  const [readingHighlight, setReadingHighlight] = useState<ReadingHighlight | null>(null);
+  const [readingHighlight, setReadingHighlight] =
+    useState<ReadingHighlight | null>(null);
   const [texts, setTexts] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [color, setColor] = useState("#c5a634");
@@ -142,10 +177,27 @@ export default function App() {
   const input = useRef<HTMLInputElement>(null);
   const mergeInput = useRef<HTMLInputElement>(null);
   const stage = useRef<HTMLDivElement>(null);
+  const tabStrip = useRef<HTMLDivElement>(null);
+  const goToPage = (target: number) => {
+    setPage(target);
+    if (latex) stage.current?.querySelector<HTMLElement>(`[data-page="${target}"]`)
+      ?.scrollIntoView({ block: "start", behavior: "instant" });
+  };
+  useEffect(() => {
+    if (latex) requestAnimationFrame(() => {
+      stage.current?.querySelector<HTMLElement>(`[data-page="${page}"]`)
+        ?.scrollIntoView({ block: "start", behavior: "instant" });
+    });
+  }, [latex]);
   const currentPdf = useRef<PDFDocumentProxy | null>(null);
   const currentLoadingTask = useRef<PDFDocumentLoadingTask | null>(null);
   const lock = useRef(false);
   const dirty = bytes !== savedBytes;
+  const workspaceDirty =
+    dirty ||
+    tabs.some(
+      (tab) => tab.id !== activeTabId && tab.bytes !== tab.savedBytes,
+    );
   const reportError = useCallback((message: string) => setError(message), []);
   const load = async (
     data: Uint8Array,
@@ -155,7 +207,9 @@ export default function App() {
     // Validate mutability before showing a file as editable. Encrypted files are not silently decrypted.
     await PDFDocument.load(data);
     const loadingTask = getDocument({ data: data.slice() });
-    const loaded = await loadingTask.promise;
+    let loaded: PDFDocumentProxy;
+    try { loaded = await loadingTask.promise; }
+    catch (error) { await loadingTask.destroy(); throw error; }
     if (newDocument) {
       const key = await documentIdentity(data);
       const stored = readLocal<{ page: number; bookmarks: Bookmark[] }>(
@@ -175,8 +229,7 @@ export default function App() {
     setBytes(data);
     setPage(Math.max(1, Math.min(targetPage, loaded.numPages)));
     setTexts([]);
-    if (oldLoadingTask)
-      setTimeout(() => void oldLoadingTask.destroy(), 100);
+    if (oldLoadingTask) setTimeout(() => void oldLoadingTask.destroy(), 100);
     const content: string[] = [];
     for (let n = 1; n <= loaded.numPages; n++) {
       if (currentPdf.current !== loaded) break;
@@ -207,21 +260,26 @@ export default function App() {
     }
   }, [documentKey, page, bookmarks, dirty]);
   useEffect(() => {
-    window.folio?.setDirty(dirty);
+    window.folio?.setDirty(workspaceDirty);
     const handler = (event: BeforeUnloadEvent) => {
-      if (dirty) {
+      if (workspaceDirty) {
         event.preventDefault();
         event.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
+  }, [workspaceDirty]);
   useEffect(() => {
     if (!notice) return;
     const timeout = setTimeout(() => setNotice(""), 4000);
     return () => clearTimeout(timeout);
   }, [notice]);
+  useEffect(() => {
+    tabStrip.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeTabId]);
   const task = async (fn: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true;
@@ -236,42 +294,199 @@ export default function App() {
       setBusy(false);
     }
   };
-  const replace = async (data: Uint8Array, filename: string) => {
-    if (
-      dirty &&
-      !window.confirm("Open another PDF and discard your unsaved changes?")
-    )
-      return;
+  const activeTab = (): DocumentTab | null =>
+    bytes
+      ? {
+          id: activeTabId,
+          name,
+          source,
+          latex,
+          documentKey,
+          bookmarks,
+          bytes,
+          savedBytes,
+          page,
+          zoom,
+          fitMode,
+          past,
+          future,
+          tool,
+          query,
+        }
+      : null;
+  const openDocument = async (
+    data: Uint8Array,
+    filename: string,
+    origin: Source | null = null,
+  ) => {
+    const previous = activeTab();
     await load(data, 1, true);
+    setSource(origin);
+    setLatex(origin?.latex ?? false);
+    setReloadStatus("");
     setName(filename);
     setSavedBytes(data);
     setPast([]);
     setFuture([]);
     setTool("select");
     setQuery("");
+    const id = crypto.randomUUID();
+    setTabs((current) => [
+      ...current.map((tab) =>
+        previous && tab.id === previous.id ? previous : tab,
+      ),
+      {
+        id,
+        name: filename,
+        source: origin,
+        latex: origin?.latex ?? false,
+        documentKey: "",
+        bookmarks: [],
+        bytes: data,
+        savedBytes: data,
+        page: 1,
+        zoom: preferences.zoom,
+        fitMode: preferences.fitPage ? "page" : "manual",
+        past: [],
+        future: [],
+        tool: "select",
+        query: "",
+      },
+    ]);
+    setActiveTabId(id);
     refreshRecents();
   };
+  const restoreTab = async (tab: DocumentTab) => {
+    await load(tab.bytes, tab.page);
+    setActiveTabId(tab.id);
+    setName(tab.name);
+    setSource(tab.source);
+    setLatex(tab.latex);
+    setReloadStatus("");
+    setDocumentKey(tab.documentKey);
+    setBookmarks(tab.bookmarks);
+    setSavedBytes(tab.savedBytes);
+    setZoom(tab.zoom);
+    setFitMode(tab.fitMode);
+    setPast(tab.past);
+    setFuture(tab.future);
+    setTool(tab.tool);
+    setQuery(tab.query);
+    setReadingHighlight(null);
+  };
+  const switchTab = (id: string) => {
+    if (id === activeTabId || busy) return;
+    const target = tabs.find((tab) => tab.id === id);
+    if (!target) return;
+    const current = activeTab();
+    void task(async () => {
+      if (current)
+        setTabs((items) =>
+          items.map((tab) => (tab.id === current.id ? current : tab)),
+        );
+      await restoreTab(target);
+    });
+  };
+  const closeTab = (id: string) => {
+    if (busy) return;
+    const target =
+      id === activeTabId ? activeTab() : tabs.find((tab) => tab.id === id);
+    if (!target) return;
+    if (
+      target.bytes !== target.savedBytes &&
+      !window.confirm(`Close ${target.name} and discard its unsaved changes?`)
+    )
+      return;
+    if (id !== activeTabId) {
+      setTabs((items) => items.filter((tab) => tab.id !== id));
+      return;
+    }
+    const index = tabs.findIndex((tab) => tab.id === id);
+    const next = tabs[index + 1] || tabs[index - 1];
+    if (!next) {
+      setTabs([]);
+      clearWorkspace();
+      return;
+    }
+    void task(async () => {
+      setTabs((items) => items.filter((tab) => tab.id !== id));
+      await restoreTab(next);
+    });
+  };
+  const latexControls = source && preferences.showLatex ? (
+    <div className="latex-controls">
+        {source && <button className="text-button" aria-pressed={latex}
+          title="Reload compiler output automatically; pauses while you have unsaved edits"
+          onClick={() => { setLatex(!latex); setReloadStatus(""); }}>
+          LaTeX {latex ? "on" : "off"}
+        </button>}
+        {latex && <span role="status">{dirty ? "Reload paused · unsaved edits" : reloadStatus || "Watching for PDF changes"}</span>}
+    </div>
+  ) : null;
+  const reloadLatest = useRef<() => Promise<void>>(async () => {});
+  reloadLatest.current = async () => {
+    if (!latex || !source || !pdf || dirty || lock.current || !window.folio) return;
+    lock.current = true;
+    try {
+      const update = await window.folio.reloadPdf(source.source, source.version);
+      if (!update) return;
+      setBusy(true);
+      const data = new Uint8Array(update.data);
+      await load(data, page);
+      setSavedBytes(data);
+      setPast([]); setFuture([]);
+      setSource({ ...source, version: update.version });
+      setBookmarks(current => current.filter(b => b.page <= currentPdf.current!.numPages));
+      setReloadStatus("");
+    } catch {
+      setReloadStatus("Waiting for a readable PDF…");
+    } finally { lock.current = false; setBusy(false); }
+  };
+  useEffect(() => {
+    if (!latex || !source) return;
+    const timer = setInterval(() => void reloadLatest.current(), 1000);
+    return () => clearInterval(timer);
+  }, [latex, source?.source]);
   const [pendingOpen, setPendingOpen] = useState(0);
   const checkingOpen = useRef(false);
-  useEffect(() => window.folio?.onPendingPdf(() => setPendingOpen(n => n + 1)), []);
+  useEffect(
+    () => window.folio?.onPendingPdf(() => setPendingOpen((n) => n + 1)),
+    [],
+  );
   useEffect(() => {
     if (!window.folio || busy || checkingOpen.current) return;
     checkingOpen.current = true;
-    void window.folio.nextPdf().then(async file => {
-      if (file) {
-        await task(() => replace(new Uint8Array(file.data), file.name));
-        setPendingOpen(n => n + 1);
-      }
-    }).catch(e => {
-      setError(e instanceof Error ? e.message : String(e));
-      setPendingOpen(n => n + 1);
-    }).finally(() => { checkingOpen.current = false; });
+    void window.folio
+      .nextPdf()
+      .then(async (file) => {
+        if (file) {
+          const existing = tabs.find((tab) => tab.source?.source === file.source);
+          if (source?.source === file.source) {
+            if (file.latex) setLatex(true);
+          } else if (existing) {
+            switchTab(existing.id);
+          } else {
+            await task(() =>
+              openDocument(new Uint8Array(file.data), file.name, file),
+            );
+          }
+          setPendingOpen((n) => n + 1);
+        }
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : String(e));
+        setPendingOpen((n) => n + 1);
+      })
+      .finally(() => {
+        checkingOpen.current = false;
+      });
   }, [busy, pendingOpen]);
   const open = () => {
     if (window.folio)
       void task(async () => {
         const file = await window.folio!.openPdf();
-        if (file) await replace(new Uint8Array(file.data), file.name);
+        if (file)
+          await openDocument(new Uint8Array(file.data), file.name, file);
       });
     else input.current?.click();
   };
@@ -337,14 +552,49 @@ export default function App() {
     const handler = (e: KeyboardEvent) => {
       const action = readerShortcut(e);
       const target = e.target instanceof HTMLElement ? e.target : null;
-      if (action && !target?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]') && !settings && !document.querySelector('[role="dialog"]')) {
+      if (
+        action &&
+        !target?.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]',
+        ) &&
+        !settings &&
+        !document.querySelector('[role="dialog"]')
+      ) {
         if (!pdf || busy) return;
         e.preventDefault();
-        if (action === "zoom-in" || action === "zoom-out" || action === "actual-size") {
+        if (
+          action === "zoom-in" ||
+          action === "zoom-out" ||
+          action === "actual-size"
+        ) {
           setFitMode("manual");
-          setZoom(current => action === "actual-size" ? 1 : Math.max(0.3, Math.min(3, Math.round((current + (action === "zoom-in" ? 0.1 : -0.1)) * 100) / 100)));
+          setZoom((current) =>
+            action === "actual-size"
+              ? 1
+              : Math.max(
+                  0.3,
+                  Math.min(
+                    3,
+                    Math.round(
+                      (current + (action === "zoom-in" ? 0.1 : -0.1)) * 100,
+                    ) / 100,
+                  ),
+                ),
+          );
         } else {
-          setPage(current => action === "first-page" ? 1 : action === "last-page" ? pdf.numPages : Math.max(1, Math.min(pdf.numPages, current + (action === "next-page" ? 1 : -1))));
+          goToPage(
+            action === "first-page"
+              ? 1
+              : action === "last-page"
+                ? pdf.numPages
+                : Math.max(
+                    1,
+                    Math.min(
+                      pdf.numPages,
+                      page + (action === "next-page" ? 1 : -1),
+                    ),
+                  ),
+          );
         }
         return;
       }
@@ -385,7 +635,7 @@ export default function App() {
     let cancelled = false;
     const container = stage.current;
     const update = async () => {
-      const viewport = (await pdf.getPage(page)).getViewport({ scale: 1 });
+      const viewport = (await pdf.getPage(latex ? 1 : page)).getViewport({ scale: 1 });
       if (cancelled) return;
       const width = (container.clientWidth - 76) / viewport.width;
       const height = (container.clientHeight - 132) / viewport.height;
@@ -405,27 +655,34 @@ export default function App() {
       cancelled = true;
       observer.disconnect();
     };
-  }, [pdf, page, fitMode]);
+  }, [pdf, latex ? 1 : page, fitMode, latex]);
 
-  const goHome = () => {
-    if (
-      dirty &&
-      !window.confirm("Return to Start and discard unsaved PDF changes?")
-    )
-      return;
+  const clearWorkspace = () => {
     setDocumentKey("");
     setBookmarks([]);
+    setSource(null);
+    setLatex(false);
     setPdf(null);
     setBytes(null);
     setSavedBytes(null);
     setTexts([]);
     setPast([]);
     setFuture([]);
+    setActiveTabId("");
     const previousLoadingTask = currentLoadingTask.current;
     currentLoadingTask.current = null;
     currentPdf.current = null;
     setTimeout(() => void previousLoadingTask?.destroy(), 100);
     refreshRecents();
+  };
+  const goHome = () => {
+    if (
+      workspaceDirty &&
+      !window.confirm("Return to Start and discard unsaved PDF changes?")
+    )
+      return;
+    setTabs([]);
+    clearWorkspace();
   };
   const addBookmark = () => {
     setBookmarkDraft({ title: `Page ${page}`, page });
@@ -544,7 +801,7 @@ export default function App() {
           const file = e.dataTransfer.files[0];
           if (file)
             void task(async () =>
-              replace(new Uint8Array(await file.arrayBuffer()), file.name),
+              openDocument(new Uint8Array(await file.arrayBuffer()), file.name),
             );
         }}
       >
@@ -553,7 +810,8 @@ export default function App() {
           <div className="start-intro">
             <h1>
               {startupSplash[0]}
-              <br />{startupSplash[1]}
+              <br />
+              {startupSplash[1]}
             </h1>
             <p>Read, mark up, and listen.</p>
           </div>
@@ -567,21 +825,23 @@ export default function App() {
                 </span>
                 <kbd>⌘O</kbd>
               </button>
-              {preferences.showExplore && <button
-                className="start-action"
-                disabled={busy}
-                onClick={() =>
-                  void task(async () =>
-                    replace(await createWelcome(), "Welcome to Folio.pdf"),
-                  )
-                }
-              >
-                <BookOpen size={21} />
-                <span>
-                  Explore Folio
-                  <small>Open the sample document and try the tools.</small>
-                </span>
-              </button>}
+              {preferences.showExplore && (
+                <button
+                  className="start-action"
+                  disabled={busy}
+                  onClick={() =>
+                    void task(async () =>
+                      openDocument(await createWelcome(), "Welcome to Folio.pdf"),
+                    )
+                  }
+                >
+                  <BookOpen size={21} />
+                  <span>
+                    Explore Folio
+                    <small>Open the sample document and try the tools.</small>
+                  </span>
+                </button>
+              )}
               <button
                 className="start-action"
                 onClick={() => setSettings(true)}
@@ -592,7 +852,6 @@ export default function App() {
                   <small>Your reading, voice, and workspace preferences.</small>
                 </span>
               </button>
-
             </section>
             <section>
               <h2>Recent documents</h2>
@@ -604,8 +863,14 @@ export default function App() {
                       disabled={busy}
                       onClick={() =>
                         void task(async () => {
-                          const file = await window.folio!.openRecent(recent.id);
-                          await replace(new Uint8Array(file.data), file.name);
+                          const file = await window.folio!.openRecent(
+                            recent.id,
+                          );
+                          await openDocument(
+                            new Uint8Array(file.data),
+                            file.name,
+                            file,
+                          );
                         })
                       }
                     >
@@ -639,7 +904,9 @@ export default function App() {
               ) : (
                 <div className="empty-recents">
                   <FileText size={28} />
-                  <small><br></br>PDFs you open will appear in this list.</small>
+                  <small>
+                    <br></br>PDFs you open will appear in this list.
+                  </small>
                 </div>
               )}
             </section>
@@ -665,7 +932,7 @@ export default function App() {
             const file = e.target.files?.[0];
             if (file)
               void task(async () =>
-                replace(new Uint8Array(await file.arrayBuffer()), file.name),
+                openDocument(new Uint8Array(await file.arrayBuffer()), file.name),
               );
             e.target.value = "";
           }}
@@ -674,38 +941,84 @@ export default function App() {
     );
   return (
     <div
-      className={appClass}
+      className={`${appClass}${latex ? " latex-workspace" : ""}`}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
         const file = e.dataTransfer.files[0];
         if (file)
           void task(async () =>
-            replace(new Uint8Array(await file.arrayBuffer()), file.name),
+            openDocument(new Uint8Array(await file.arrayBuffer()), file.name),
           );
       }}
     >
       {header}
       <div className="document-bar">
-        <div className="document-tab">
-          <FileText size={16} />
-          <span>{name}</span>
-          {dirty && <span className="unsaved-dot" title="Unsaved changes" />}
+        <div
+          className="document-tabs"
+          role="tablist"
+          aria-label="Open PDFs"
+          ref={tabStrip}
+        >
+          {tabs.map((tab) => {
+            const selected = tab.id === activeTabId;
+            const tabDirty = selected ? dirty : tab.bytes !== tab.savedBytes;
+            return (
+              <div
+                className={`document-tab${selected ? " active" : ""}`}
+                key={tab.id}
+              >
+                <button
+                  role="tab"
+                  aria-selected={selected}
+                  title={tab.name}
+                  disabled={busy}
+                  onClick={() => switchTab(tab.id)}
+                >
+                  <FileText size={15} />
+                  <span>{selected ? name : tab.name}</span>
+                  {tabDirty && (
+                    <span className="unsaved-dot" title="Unsaved changes" />
+                  )}
+                </button>
+                <button
+                  className="tab-close"
+                  aria-label={`Close ${tab.name}`}
+                  title={`Close ${tab.name}`}
+                  disabled={busy}
+                  onClick={() => closeTab(tab.id)}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            );
+          })}
+          <button
+            className="new-tab"
+            aria-label="Open another PDF"
+            title="Open another PDF"
+            disabled={busy}
+            onClick={open}
+          >
+            <Plus size={15} />
+          </button>
         </div>
-        <button className="text-button" onClick={addBookmark}>
-          <BookmarkPlus size={15} /> Bookmark page
-        </button>
-        <span className="document-state">
-          {busy ? (
-            "Working…"
-          ) : dirty ? (
-            "Unsaved changes"
-          ) : (
-            <>
-              <Check size={12} /> All set
-            </>
-          )}
-        </span>
+        <div className="document-bar-actions">
+          <button className="text-button" onClick={addBookmark}>
+            <BookmarkPlus size={15} /> Bookmark page
+          </button>
+          <span className="document-state">
+            {busy ? (
+              "Working…"
+            ) : dirty ? (
+              "Unsaved changes"
+            ) : (
+              <>
+                <Check size={12} /> All set
+              </>
+            )}
+          </span>
+        </div>
       </div>
       <div className="toolbar">
         <div className="toolbar-group">
@@ -720,7 +1033,7 @@ export default function App() {
             {rail ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
           </button>
           <span className="separator" />
-          {tools.map(({ id, label, icon: Icon }) => (
+          {!latex && tools.map(({ id, label, icon: Icon }) => (
             <button
               disabled={busy}
               key={id}
@@ -762,24 +1075,44 @@ export default function App() {
             aria-label="Listen"
             className={panel === "listen" ? "active" : ""}
             aria-pressed={panel === "listen"}
-            onClick={() => setPanel(panel === "listen" && preferences.sidebarVisible ? "details" : "listen")}
+            onClick={() =>
+              setPanel(
+                panel === "listen" && preferences.sidebarVisible
+                  ? "details"
+                  : "listen",
+              )
+            }
           >
             <Headphones size={16} />
             <span>Listen</span>
           </button>
           <button
             className="icon-button"
-            title={preferences.sidebarVisible ? "Hide right sidebar" : "Show right sidebar"}
-            aria-label={preferences.sidebarVisible ? "Hide right sidebar" : "Show right sidebar"}
+            title={
+              preferences.sidebarVisible
+                ? "Hide right sidebar"
+                : "Show right sidebar"
+            }
+            aria-label={
+              preferences.sidebarVisible
+                ? "Hide right sidebar"
+                : "Show right sidebar"
+            }
             aria-expanded={preferences.sidebarVisible}
             aria-controls="right-sidebar"
-            onClick={() => updatePreferences({ sidebarVisible: !preferences.sidebarVisible })}
+            onClick={() =>
+              updatePreferences({ sidebarVisible: !preferences.sidebarVisible })
+            }
           >
-            {preferences.sidebarVisible ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+            {preferences.sidebarVisible ? (
+              <PanelRightClose size={18} />
+            ) : (
+              <PanelRightOpen size={18} />
+            )}
           </button>
         </div>
       </div>
-      {tool !== "select" && (
+      {!latex && tool !== "select" && (
         <div className="tool-options">
           <span>
             {tool === "text"
@@ -835,7 +1168,7 @@ export default function App() {
         </div>
       )}
       <div className="workspace">
-        {rail && (
+        {rail && !latex && (
           <aside id="left-sidebar" className="page-rail">
             <div className="panel-heading">
               <span>
@@ -988,7 +1321,10 @@ export default function App() {
             </button>
           </aside>
         )}
-        <main className={`document-stage${readerIdle ? " reader-idle" : ""}`} ref={stage}>
+        <main
+          className={`document-stage${readerIdle ? " reader-idle" : ""}`}
+          ref={stage}
+        >
           <div className="canvas-heading">
             <span>
               {tool === "select" ? "A LITTLE ROOM TO FOCUS" : "MAKE IT YOURS"}
@@ -998,8 +1334,20 @@ export default function App() {
               {String(pdf?.numPages || 0).padStart(2, "0")}
             </span>
           </div>
-          <div className="paper-scroll">
-            {pdf ? (
+          <div className={`paper-scroll${latex ? " continuous-pages" : ""}`}
+            onScroll={latex ? (event) => {
+              const scroll = event.currentTarget;
+              const top = scroll.getBoundingClientRect().top;
+              const pages = Array.from(scroll.querySelectorAll<HTMLElement>("[data-page]"));
+              const current = pages.find(element => element.getBoundingClientRect().bottom > top + 40);
+              if (current) setPage(Number(current.dataset.page));
+            } : undefined}>
+            {pdf && latex ? (
+              Array.from({ length: pdf.numPages }, (_, i) => (
+                <PdfPage key={i + 1} pdf={pdf} page={i + 1} scale={zoom}
+                  continuous animateRefresh onError={reportError} />
+              ))
+            ) : pdf ? (
               <PdfPage
                 pdf={pdf}
                 page={page}
@@ -1025,7 +1373,7 @@ export default function App() {
               aria-label="Previous page"
               title="Previous page (⌘/Ctrl ←)"
               disabled={page <= 1 || busy}
-              onClick={() => setPage(page - 1)}
+              onClick={() => goToPage(page - 1)}
             >
               <ChevronLeft size={17} />
             </button>
@@ -1037,7 +1385,7 @@ export default function App() {
               aria-label="Next page"
               title="Next page (⌘/Ctrl →)"
               disabled={!pdf || page >= pdf.numPages || busy}
-              onClick={() => setPage(page + 1)}
+              onClick={() => goToPage(page + 1)}
             >
               <ChevronRight size={17} />
             </button>
@@ -1085,8 +1433,9 @@ export default function App() {
             </button>
           </div>
         </main>
-        {panel === "listen" ? (
+        {panel === "listen" && !latex ? (
           <Listen
+            sidebarControls={latexControls}
             hidden={!preferences.sidebarVisible}
             text={texts[page - 1] || ""}
             page={page}
@@ -1099,12 +1448,17 @@ export default function App() {
             updatePreferences={updatePreferences}
           />
         ) : (
-          <aside id="right-sidebar" className="details-panel" hidden={!preferences.sidebarVisible}>
+          <aside
+            id="right-sidebar"
+            className="details-panel"
+            hidden={!preferences.sidebarVisible}
+          >
             <div className="panel-heading">
               <span>
                 <FileText size={16} /> Document
               </span>
             </div>
+            {latexControls}
             <h2>
               {sidebarSplash[0]}
               <br />
@@ -1118,7 +1472,7 @@ export default function App() {
               <span>File size</span>
               <strong>{((bytes?.length || 0) / 1024).toFixed(1)} KB</strong>
             </div>
-            <div className="page-actions">
+            <div className="page-actions" hidden={latex}>
               <button
                 onClick={() => edit((data) => rotatePage(data, page - 1))}
                 disabled={busy}
@@ -1199,7 +1553,7 @@ export default function App() {
           const file = e.target.files?.[0];
           if (file)
             void task(async () =>
-              replace(new Uint8Array(await file.arrayBuffer()), file.name),
+              openDocument(new Uint8Array(await file.arrayBuffer()), file.name),
             );
           e.target.value = "";
         }}

@@ -129,3 +129,37 @@ Recordings can be longer than 30 seconds. **Edit voice** previews the original a
 Voice editing now opens in a separate dialog. The Listen panel keeps playback controls visible and scrolls only its options when necessary. PDFs fit the entire page to the available window by default and refit on resize; use Zoom, Fit width, or Fit whole page to change the view. Settings can disable automatic page fitting.
 
 Validation: `npm test`, `npm run build`, and `.venv/bin/python -m unittest discover -s tests -p 'test_reference.py'`.
+## LaTeX and VimTeX live preview
+
+Open a PDF in the desktop app and turn **LaTeX on** in the document bar.
+Folio checks the source once per second and reloads changed compiler output,
+keeping your page (clamped if pages were removed), zoom, and scroll position.
+It waits for writes to settle and retries missing or unreadable output while
+keeping the last readable PDF visible. Unsaved edits pause reloading; saving a
+copy lets it resume. The compiler's source PDF is never overwritten.
+
+LaTeX mode is enabled automatically when a matching `.synctex.gz` or `.synctex`
+file is beside the PDF, or when launched with `--latex`:
+
+```sh
+/Applications/Folio.app/Contents/MacOS/Folio --latex /absolute/path/paper.pdf
+# From this checkout:
+npm run desktop -- --latex /absolute/path/paper.pdf
+```
+
+For [VimTeX's general viewer](https://github.com/lervag/vimtex), add this to your
+Vim configuration (adjust the installed application path if needed):
+
+```vim
+let g:vimtex_view_method = 'general'
+let g:vimtex_view_general_viewer = '/Applications/Folio.app/Contents/MacOS/Folio'
+let g:vimtex_view_general_options = '--latex @pdf'
+```
+
+Use VimTeX's usual continuous compilation and viewer commands. Subsequent
+launches reuse the running Folio instance; opening the same PDF again preserves
+its current position. Automatic reloads do not focus the window, so you can keep
+writing in Vim. This supports live PDF preview; SyncTeX forward/inverse source
+navigation is not implemented. Browser previews and browser file drops do not
+retain filesystem access; open through the desktop file picker or launcher to
+use live reload. Rebuild the packaged app to include this feature.

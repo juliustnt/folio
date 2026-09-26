@@ -14,7 +14,7 @@
     "test": "vitest run",
     "setup:tts": "sh scripts/setup-tts.sh",
     "package:mac": "npm run build && node scripts/package-mac.cjs && electron-builder --mac dir",
-    "check:desktop": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check electron/speech.cjs && node --check electron/library.cjs && node --check electron/pdf-associations.cjs"
+    "check:desktop": "node --check electron/main.cjs && node --check electron/latex.cjs && node --check electron/preload.cjs && node --check electron/speech.cjs && node --check electron/library.cjs && node --check electron/pdf-associations.cjs"
   },
   "dependencies": {
     "lucide-react": "^1.47.0",

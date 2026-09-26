@@ -10,12 +10,13 @@ it('queues Finder opens before window creation and consumes each PDF once', asyn
   const remembered = [];
   const app = {
     getPath: () => '/tmp/folio-test',
+    requestSingleInstanceLock: () => true,
     on: (name, callback) => events.set(name, callback),
     isReady: () => false,
     whenReady: () => ({ then() {} }),
   };
   const context = vm.createContext({
-    __dirname: '/folio/electron', process: { argv: [], platform: 'darwin' },
+    __dirname: '/folio/electron', process: { argv: [], cwd: () => '/tmp', platform: 'darwin' },
     Uint8Array,
     require(name) {
       if (name === 'electron') return { app, ipcMain: {
@@ -24,6 +25,7 @@ it('queues Finder opens before window creation and consumes each PDF once', asyn
       if (name === './library.cjs') return { Library: class {
         async remember(filename) { remembered.push(filename); }
       } };
+      if (name === './latex.cjs') return { launchFiles: () => [], PdfSources: class { async open(filename) { return { name: filename.split('/').pop(), data: new Uint8Array() }; } } };
       if (name === './speech.cjs') return { SpeechWorker: class {} };
       if (name === 'node:fs/promises') return {
         readFile: async filename => Buffer.from(filename),

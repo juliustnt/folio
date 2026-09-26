@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('folio', {
+  reloadPdf: (source, version) => ipcRenderer.invoke('pdf:reload', source, version),
   macOS: process.platform === 'darwin',
   setDefaultPdfApp: () => ipcRenderer.invoke('pdf:default'),
   repairPdfOpening: () => ipcRenderer.invoke('pdf:repair'),

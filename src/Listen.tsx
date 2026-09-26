@@ -16,6 +16,7 @@ import type { ReadingHighlight } from "./readingHighlight";
 import { documentPassages, SpeechQueue } from "./speech";
 export default function Listen({
   hidden = false,
+  sidebarControls,
   text,
   page,
   texts,
@@ -27,6 +28,7 @@ export default function Listen({
   updatePreferences,
 }: {
   hidden?: boolean;
+  sidebarControls?: React.ReactNode;
   text: string;
   page: number;
   texts: string[];
@@ -321,6 +323,7 @@ export default function Listen({
         </span>
         <span className="beta">LOCAL AI</span>
       </div>
+      {sidebarControls}
       <div className="listen-body">
         <p className="listen-caption">Natural speech, right on your Mac.</p>
         <label>

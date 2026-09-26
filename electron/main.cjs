@@ -7,11 +7,20 @@ const library = new Library(app.getPath('userData'));
 const { SpeechWorker } = require('./speech.cjs');
 const root = path.join(__dirname, '..');
 const speech = new SpeechWorker(app.isPackaged ? process.resourcesPath : root);
+const { launchFiles, PdfSources } = require('./latex.cjs');
+const sources = new PdfSources();
 let win; let dirty = false;
-const pendingPdfs = [];
+const pendingPdfs = launchFiles(process.argv, process.cwd());
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+app.on('second-instance', (_event, argv, cwd) => {
+  pendingPdfs.push(...launchFiles(argv, cwd));
+  if (win && !win.isDestroyed()) { win.webContents.send('pdf:pending'); }
+  else if (app.isReady()) createWindow();
+});
 app.on('open-file', (event, filename) => {
   event.preventDefault();
-  pendingPdfs.push(filename);
+  pendingPdfs.push({ filename, latex: process.argv.includes('--latex') });
   if (win && !win.isDestroyed()) {
     if (win.isMinimized()) win.restore();
     win.show(); win.focus();
@@ -40,16 +49,22 @@ handle('pdf:repair', async () => {
   return { name: path.basename(result.filePaths[0]), repaired: await repairPdfAssociation(result.filePaths[0]) };
 });
 handle('pdf:next', async () => {
-  const filename = pendingPdfs.shift();
-  if (!filename) return null;
-  const data = new Uint8Array(await readFile(filename));
+  const request = pendingPdfs.shift();
+  if (!request) return null;
+  const { filename, latex } = request;
+  const file = await sources.open(filename, latex);
   await library.remember(filename);
-  return { name: path.basename(filename), data };
+  return file;
 });
-handle('pdf:open', async () => { const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'PDF documents', extensions: ['pdf'] }] }); if (result.canceled) return null; const filename = result.filePaths[0]; const data = new Uint8Array(await readFile(filename)); await library.remember(filename); return { name: path.basename(filename), data }; });
+handle('pdf:open', async () => { const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'PDF documents', extensions: ['pdf'] }] }); if (result.canceled) return null; const filename = result.filePaths[0]; const file = await sources.open(filename); await library.remember(filename); return file; });
 handle('pdf:save', async (name, data) => { if (typeof name !== 'string' || !(data instanceof Uint8Array) || data.length > 512 * 1024 * 1024) throw new Error('Invalid PDF data.'); const result = await dialog.showSaveDialog(win, { defaultPath: path.basename(name), filters: [{ name: 'PDF documents', extensions: ['pdf'] }] }); if (result.canceled || !result.filePath) return false; await writeFile(result.filePath, data); await library.remember(result.filePath); return true; });
 handle('library:recents', async () => (await library.read()).recents);
-handle('library:open', id => library.openRecent(id));
+handle('library:open', async id => {
+  const item = (await library.read()).recents.find(item => item.id === id);
+  if (!item) throw new Error('This recent file is no longer in your library.');
+  const file = await sources.open(item.path); await library.remember(item.path); return file;
+});
+handle('pdf:reload', (source, version) => sources.reload(source, version));
 handle('library:remove', id => library.removeRecent(id));
 handle('voice:remove', id => library.removeVoice(id));
 handle('voice:list', () => library.voices());
@@ -101,6 +116,7 @@ function createWindow() {
   win.loadURL(appUrl);
 }
 app.whenReady().then(() => {
+  if (!primaryInstance) return;
   Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: 'Folio', submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }, { role: 'quit' }] }, { role: 'editMenu' }, { label: 'View', submenu: [{ role: 'togglefullscreen' }, ...(dev ? [{ role: 'toggleDevTools' }] : [])] }, { role: 'windowMenu' }]));
   createWindow(); app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 });
