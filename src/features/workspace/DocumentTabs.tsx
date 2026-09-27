@@ -1,10 +1,4 @@
-import {
-  Check,
-  FileText,
-  Plus,
-  X,
-  BookmarkPlus,
-} from "lucide-react";
+import { Check, FileText, Plus, X, BookmarkPlus } from "lucide-react";
 import type { DocumentWorkspace } from "./useDocumentWorkspace";
 
 type DocumentTabsProps = Pick<
@@ -19,7 +13,7 @@ type DocumentTabsProps = Pick<
   | "closeTab"
   | "open"
 > & {
-  addBookmark: () => void;
+  addBookmark?: () => void;
 };
 
 export function DocumentTabs({
@@ -85,22 +79,24 @@ export function DocumentTabs({
           <Plus size={15} />
         </button>
       </div>
-      <div className="document-bar-actions">
-        <button className="text-button" onClick={addBookmark}>
-          <BookmarkPlus size={15} /> Bookmark page
-        </button>
-        <span className="document-state">
-          {busy ? (
-            "Working…"
-          ) : dirty ? (
-            "Unsaved changes"
-          ) : (
-            <>
-              <Check size={12} /> All set
-            </>
-          )}
-        </span>
-      </div>
+      {addBookmark && (
+        <div className="document-bar-actions">
+          <button className="text-button" onClick={addBookmark}>
+            <BookmarkPlus size={15} /> Bookmark page
+          </button>
+          <span className="document-state">
+            {busy ? (
+              "Working…"
+            ) : dirty ? (
+              "Unsaved changes"
+            ) : (
+              <>
+                <Check size={12} /> All set
+              </>
+            )}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

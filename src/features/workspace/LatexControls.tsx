@@ -6,7 +6,12 @@ type LatexControlsProps = Pick<
 >;
 
 export function LatexControls({
-  source, latex, dirty, reloadStatus, setLatex, setReloadStatus,
+  source,
+  latex,
+  dirty,
+  reloadStatus,
+  setLatex,
+  setReloadStatus,
 }: LatexControlsProps) {
   return (
     <div className="latex-controls">

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { RecentPicker } from "../features/workspace/RecentPicker";
+import { useEffect, useLayoutEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { BookmarkDialog } from "../features/workspace/BookmarkDialog";
 import type { BookmarkDraft } from "../features/workspace/BookmarkDialog";
@@ -21,15 +22,69 @@ import { DetailsPanel } from "../features/workspace/DetailsPanel";
 
 export default function App() {
   const [preferences, updatePreferences] = usePreferences();
+  useLayoutEffect(() => {
+    const surface = document.querySelector<HTMLElement>("#root > .app");
+    if (!surface) return;
+    // Read the actual CSS palette so native and DOM backgrounds cannot drift.
+    const background = getComputedStyle(surface).backgroundColor;
+    const channels = background.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+    if (!channels) return;
+    const color = "#" + channels.slice(1).map(value => Number(value).toString(16).padStart(2, "0")).join("");
+    document.documentElement.style.setProperty("--window-background", color);
+    void window.folio?.setWindowBackground(color).catch(error => {
+      console.error("Unable to synchronize the window background", error);
+    });
+    return () => {
+      document.documentElement.style.removeProperty("--window-background");
+    };
+  }, [preferences.theme, preferences.dark]);
   const [settings, setSettings] = useState(false);
+  const [recentPicker, setRecentPicker] = useState(false);
+  useEffect(() => {
+    const handleRecentShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        if (!document.querySelector('[role="dialog"]')) setRecentPicker(true);
+      }
+    };
+    window.addEventListener("keydown", handleRecentShortcut);
+    return () => window.removeEventListener("keydown", handleRecentShortcut);
+  }, []);
   const [navigation, setNavigation] = useState<Navigation>("pages");
   const [bookmarkDraft, setBookmarkDraft] = useState<BookmarkDraft | null>(null);
+  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 900px)").matches);
+  const [drawer, setDrawer] = useState<"left" | "right" | null>(null);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const resize = () => {
+      setNarrow(media.matches);
+      setDrawer(null);
+    };
+    media.addEventListener("change", resize);
+    return () => media.removeEventListener("change", resize);
+  }, []);
+  useEffect(() => {
+    if (!narrow || !drawer) return;
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawer(null);
+    };
+    window.addEventListener("keydown", dismiss);
+    return () => window.removeEventListener("keydown", dismiss);
+  }, [narrow, drawer]);
+  const sidebarVisible = narrow ? drawer === "right" : preferences.sidebarVisible;
+  const updateLayoutPreferences = (patch: Partial<typeof preferences>) => {
+    if (narrow && patch.sidebarVisible !== undefined) {
+      setDrawer(patch.sidebarVisible ? "right" : null);
+      const { sidebarVisible: _, ...rest } = patch;
+      if (Object.keys(rest).length) updatePreferences(rest);
+    } else updatePreferences(patch);
+  };
   const panel = preferences.panel;
   const setPanel = (panel: "listen" | "details") =>
-    updatePreferences({ panel, sidebarVisible: true });
-  const rail = preferences.navigationVisible;
+    updateLayoutPreferences({ panel, sidebarVisible: true });
+  const rail = narrow ? drawer === "left" : preferences.navigationVisible;
   const setRail = (navigationVisible: boolean) =>
-    updatePreferences({ navigationVisible });
+    narrow ? setDrawer(navigationVisible ? "left" : null) : updatePreferences({ navigationVisible });
   const [note, setNote] = useState("");
   const [color, setColor] = useState("#c5a634");
   const [fontSize, setFontSize] = useState(preferences.fontSize);
@@ -148,6 +203,10 @@ export default function App() {
       close={() => setSettings(false)}
     />
   );
+  const recentDialog = recentPicker && (
+    <RecentPicker recents={recents} busy={busy} onClose={() => setRecentPicker(false)}
+      onOpen={(id) => { setRecentPicker(false); openRecent(id); }} />
+  );
   const appClass = `app theme-${preferences.theme} ${preferences.dark ? "dark-theme" : ""} ${preferences.compact ? "compact" : ""}`;
   if (!pdf)
     return (
@@ -161,6 +220,8 @@ export default function App() {
         }}
       >
         {header}
+        {tabs.length > 0 && <DocumentTabs tabs={tabs} activeTabId={activeTabId} dirty={dirty}
+          name={name} busy={busy} tabStrip={tabStrip} switchTab={switchTab} closeTab={closeTab} open={open} />}
         <StartScreen
           busy={busy}
           recents={recents}
@@ -177,6 +238,7 @@ export default function App() {
           <span>Folio</span>
         </footer>
         {settingsDialog}
+        {recentDialog}
         <input
           type="file"
           ref={input}
@@ -225,8 +287,8 @@ export default function App() {
         setRail={setRail}
         panel={panel}
         setPanel={setPanel}
-        preferences={preferences}
-        updatePreferences={updatePreferences}
+        preferences={{ ...preferences, sidebarVisible }}
+        updatePreferences={updateLayoutPreferences}
         note={note}
         setNote={setNote}
         fontSize={fontSize}
@@ -247,6 +309,9 @@ export default function App() {
         </div>
       )}
       <div className="workspace">
+        {narrow && drawer && (
+          <button className="panel-dismiss" aria-label="Close sidebar" onClick={() => setDrawer(null)} />
+        )}
         {rail && !latex && (
           <NavigationRail
             pdf={pdf}
@@ -289,7 +354,7 @@ export default function App() {
         {panel === "listen" && !latex ? (
           <Listen
             sidebarControls={latexControls}
-            hidden={!preferences.sidebarVisible}
+            hidden={!sidebarVisible}
             text={texts[page - 1] || ""}
             page={page}
             texts={texts}
@@ -310,7 +375,7 @@ export default function App() {
             bookmarks={bookmarks}
             edit={edit}
             latexControls={latexControls}
-            hidden={!preferences.sidebarVisible}
+            hidden={!sidebarVisible}
           />
         )}
       </div>
@@ -331,6 +396,7 @@ export default function App() {
         </button>
       </footer>
       {settingsDialog}
+        {recentDialog}
       {bookmarkDialog}
       {notice && (
         <div className="toast" role="status">

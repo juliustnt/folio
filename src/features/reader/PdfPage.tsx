@@ -41,6 +41,7 @@ export function PdfPage({
   const layer = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const viewport = useRef<PageViewport | null>(null);
+  const renderedScale = useRef<number | null>(null);
   const [dimensions, setDimensions] = useState({
     width: 612 * scale,
     height: 792 * scale,
@@ -109,7 +110,7 @@ export function PdfPage({
       const previous = canvas.current.firstElementChild;
       canvas.current.replaceChildren(nextCanvas);
       // Keep the completed previous frame above the new page during the fade.
-      if (previous && animateRefresh && !thumbnail && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      if (previous && renderedScale.current === scale && animateRefresh && !thumbnail && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         const overlay = previous as HTMLCanvasElement;
         overlay.style.position = "absolute";
         overlay.style.inset = "0";
@@ -118,6 +119,7 @@ export function PdfPage({
         const fade = overlay.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, easing: "ease-out" });
         fade.onfinish = () => overlay.remove();
       }
+      renderedScale.current = scale;
       viewport.current = v;
       setDimensions({ width: v.width, height: v.height });
       if (!thumbnail && layer.current) {

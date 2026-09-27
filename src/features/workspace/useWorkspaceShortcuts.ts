@@ -70,6 +70,7 @@ export function useWorkspaceShortcuts({
         }
         return;
       }
+      if (document.querySelector('[role="dialog"]')) return;
       if (!(e.metaKey || e.ctrlKey)) return;
       if (["o", "s", "z"].includes(e.key.toLowerCase())) {
         if (

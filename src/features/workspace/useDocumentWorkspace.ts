@@ -461,12 +461,11 @@ export function useDocumentWorkspace(preferences: Preferences, settings: boolean
     refreshRecents();
   };
   const goHome = () => {
-    if (
-      workspaceDirty &&
-      !window.confirm("Return to Start and discard unsaved PDF changes?")
-    )
-      return;
-    setTabs([]);
+    if (busy) return;
+    const current = activeTab();
+    if (current) {
+      setTabs((items) => items.map((tab) => tab.id === current.id ? current : tab));
+    }
     clearWorkspace();
   };
   const explore = () =>

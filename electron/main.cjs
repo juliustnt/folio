@@ -47,6 +47,12 @@ const getWindow = () => win;
 const { trusted, handle } = createTrustedIpc(ipcMain, getWindow, appUrl);
 registerPdfHandlers({ handle, app, dialog, getWindow, sources, library, pendingPdfs });
 registerVoiceHandlers({ handle, dialog, getWindow, library, speech });
+handle('window:background', color => {
+  if (typeof color !== 'string' || !/^#[0-9a-f]{6}$/i.test(color)) {
+    throw new Error('Expected an opaque RGB color');
+  }
+  win.setBackgroundColor(color);
+});
 ipcMain.on('document:dirty', (event, value) => {
   trusted(event);
   dirty = !!value;
@@ -57,11 +63,13 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1360,
     height: 920,
-    minWidth: 820,
-    minHeight: 620,
+    minWidth: 480,
+    minHeight: 400,
     title: 'Folio',
     icon: path.join(__dirname, 'icons', process.platform === 'win32' ? 'folio.ico' : 'folio.png'),
-    backgroundColor: '#f8faf5',
+    // Match the default renderer palette; theme changes update this via trusted IPC.
+    backgroundColor: '#faf5f6',
+    transparent: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -69,6 +77,21 @@ function createWindow() {
       sandbox: true,
     },
   });
+  // Opt-in diagnostic fallback: full repaints can be expensive for PDF canvases.
+  if (process.argv.includes('--repaint-on-resize')) {
+    const window = win;
+    let repaint;
+    window.on('resize', () => {
+      if (repaint) return;
+      repaint = setTimeout(() => {
+        repaint = undefined;
+        if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
+          window.webContents.invalidate();
+        }
+      }, 16);
+    });
+    window.once('closed', () => clearTimeout(repaint));
+  }
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => {
     if (url !== appUrl) event.preventDefault();

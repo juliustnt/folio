@@ -3,6 +3,7 @@ export type DesktopPdf = { name: string; data: Uint8Array; source: string; versi
 declare global {
   interface Window {
     folio?: {
+      setWindowBackground(color: string): Promise<void>;
       reloadPdf(source: string, version: string): Promise<{ data: Uint8Array; version: string } | null>;
       macOS: boolean;
       setDefaultPdfApp(): Promise<void>;

@@ -7,6 +7,8 @@ import {
   Minus,
   Plus,
 } from "lucide-react";
+import { useRef } from "react";
+import { usePinchZoom } from "../reader/usePinchZoom";
 import type { DocumentWorkspace } from "./useDocumentWorkspace";
 import { PdfPage } from "../reader/PdfPage";
 
@@ -55,6 +57,8 @@ export function DocumentStage({
   fontSize,
   color,
 }: DocumentStageProps) {
+  const scroll = useRef<HTMLDivElement>(null);
+  usePinchZoom(scroll, Boolean(pdf), zoom, setZoom, setFitMode);
   return (
     <main
       className={`document-stage${readerIdle ? " reader-idle" : ""}`}
@@ -69,18 +73,37 @@ export function DocumentStage({
           {String(pdf?.numPages || 0).padStart(2, "0")}
         </span>
       </div>
-      <div className={`paper-scroll${latex ? " continuous-pages" : ""}`}
-        onScroll={latex ? (event) => {
-          const scroll = event.currentTarget;
-          const top = scroll.getBoundingClientRect().top;
-          const pages = Array.from(scroll.querySelectorAll<HTMLElement>("[data-page]"));
-          const current = pages.find(element => element.getBoundingClientRect().bottom > top + 40);
-          if (current) setPage(Number(current.dataset.page));
-        } : undefined}>
+      <div
+        ref={scroll}
+        className={`paper-scroll${latex ? " continuous-pages" : ""}`}
+        onScroll={
+          latex
+            ? (event) => {
+                const scroll = event.currentTarget;
+                const top = scroll.getBoundingClientRect().top;
+                const pages = Array.from(
+                  scroll.querySelectorAll<HTMLElement>("[data-page]"),
+                );
+                const current = pages.find(
+                  (element) =>
+                    element.getBoundingClientRect().bottom > top + 40,
+                );
+                if (current) setPage(Number(current.dataset.page));
+              }
+            : undefined
+        }
+      >
         {pdf && latex ? (
           Array.from({ length: pdf.numPages }, (_, i) => (
-            <PdfPage key={i + 1} pdf={pdf} page={i + 1} scale={zoom}
-              continuous animateRefresh onError={reportError} />
+            <PdfPage
+              key={i + 1}
+              pdf={pdf}
+              page={i + 1}
+              scale={zoom}
+              continuous
+              animateRefresh
+              onError={reportError}
+            />
           ))
         ) : pdf ? (
           <PdfPage
