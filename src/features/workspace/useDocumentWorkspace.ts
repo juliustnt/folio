@@ -81,7 +81,10 @@ export function useDocumentWorkspace(preferences: Preferences, settings: boolean
   ) => {
     // Validate mutability before showing a file as editable. Encrypted files are not silently decrypted.
     await PDFDocument.load(data);
-    const loadingTask = getDocument({ data: data.slice() });
+    const loadingTask = getDocument({
+      data: data.slice(),
+      wasmUrl: new URL(`${import.meta.env.BASE_URL}pdfjs/wasm/`, document.baseURI).href,
+    });
     let loaded: PDFDocumentProxy;
     try {
       loaded = await loadingTask.promise;
